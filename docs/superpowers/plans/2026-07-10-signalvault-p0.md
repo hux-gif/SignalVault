@@ -4,7 +4,7 @@
 
 **Goal:** Deliver a testable SignalVault P0 that accepts Coston2-compatible FXRP, protects private intent commitments, verifies a trusted local-signer allocation, and exposes the demo flow through a web UI.
 
-**Architecture:** A Foundry package owns the ERC-20 vault, commitment/replay checks, EIP-712 allocation verification, and in-memory strategy routing. A separate TypeScript service deterministically derives and signs allocations. A Next.js UI prepares the encrypted payload locally and makes contract/service calls; it never labels simulated or planned integrations as live.
+**Architecture:** Each P0 `SignalVault` is a personal vault owned by one wallet; its non-transferable shares account for liquid FXRP plus one bound router's positions. The router performs whole-vault rebalances by withdrawing prior adapter shares before depositing the new allocation. A separate TypeScript service deterministically derives and signs allocations using the `IntentVerifier` address as the EIP-712 verifying contract.
 
 **Tech Stack:** Solidity 0.8.27, Foundry, OpenZeppelin Contracts v5, TypeScript, viem, Node.js, Next.js, Vitest.
 
@@ -13,10 +13,18 @@
 - Target network is Flare Coston2, chain ID `114`; deployments must be configurable rather than pre-claimed, and contracts must use dynamic `block.chainid`.
 - Use FXRP as the only vault asset; token addresses must come from deployment configuration.
 - P0 truthfulness: local-signer/local simulated TEE is a demo mode, not production FCC.
+- P0 ownership: one vault instance serves one immutable `vaultOwner`; another user's intent can never rebalance its assets.
 - Do not label FDC, Smart Accounts, PMW, production FCC registry, or a live Upshift vault as complete without executable proof.
 - The signed allocation must bind user, vault, commitment, allocation, nonce, deadline, FTSO timestamp, chain ID, and result hash through the exact flattened `TEERESULT_TYPEHASH` in the final specification.
+- `resultHash` is canonical: it is derived from every signed field except `resultHash` itself and is verified before replay state is written.
 - `intentCommitment` is salted and domain-separated; plaintext intent is never emitted or stored on-chain.
 - Allocation weights always total `10_000` basis points. Withdrawals redeem pro-rata across every adapter, never from idle funds alone.
+- Shares are non-transferable in P0. Deposit, withdraw, and intent submission are owner-only; keepers may execute an owner-bound signed result.
+- Router rebalance always withdraws all tracked adapter shares first; repeated allocations must not double-deposit existing assets.
+- Adapter addresses are unique and configured once before the router is bound; a vault rejects a router already bound elsewhere.
+- Execution requires a nonzero owner-submitted nonce and commitment; a trusted signer cannot create an intent from empty state.
+- Router-level liquid FXRP participates in NAV and pro-rata withdrawals; zero-weight strategies are not called with `deposit(0)`.
+- Share decimals mirror the FXRP token metadata.
 - Share conversion uses pre-transfer assets; virtual asset/share inflation protection is production hardening, not P0.
 - Every production behavior begins with a failing test.
 
@@ -106,7 +114,7 @@ Run: `git add src/types src/IntentVerifier.sol test/IntentVerifier.t.sol && git 
 
 - [ ] **Step 1: Write failing tests**
 
-Cover: a 1:1 first deposit mints shares; a withdrawal burns shares and returns FXRP; second deposit uses proportional shares; submission records the latest commitment and increments the expected nonce; incorrect nonce reverts; emitted `PrivateIntentSubmitted` contains ciphertext, commitment, and nonce but no plaintext-intent fields.
+Cover: a 1:1 first deposit mints shares; a withdrawal burns shares and returns FXRP; second deposit uses proportional shares; non-owner actions and share transfers revert; empty ciphertext and zero commitment revert; submission records the latest commitment and increments the expected nonce.
 
 - [ ] **Step 2: Run the vault test red**
 
@@ -140,7 +148,7 @@ Run: `git add src/SignalVault.sol test/SignalVault.t.sol test/mocks/MockERC20.so
 
 - [ ] **Step 1: Write failing execution tests**
 
-Cover: a valid signed result matching the user’s latest commitment and expected nonce routes the vault’s available FXRP by BPS; repeated `resultHash` reverts; a stale commitment, mismatched vault, mismatched nonce, expired result, bad signature, and BPS total other than 10,000 each fail; router exposes adapter asset balances after execution.
+Cover: a valid owner-bound signed result routes FXRP by BPS; execution before intent submission and non-canonical or replayed hashes revert; a second allocation withdraws the first allocation before redepositing; total NAV is preserved; routed and router-liquid assets can be fully withdrawn; token and adapter reentrancy and direct non-vault router calls revert; duplicate/repeated configuration fails; rounding dust is bounded and recovered by final withdrawal.
 
 - [ ] **Step 2: Run the routing tests red**
 
@@ -150,7 +158,7 @@ Expected: FAIL because router/execution methods do not exist.
 
 - [ ] **Step 3: Implement execution with no hidden strategy logic**
 
-Only the vault may call `StrategyRouter.executeAllocation`. `SignalVault` must verify the typed signature, verify `result.vault == address(this)`, require current commitment and nonce match, mark `executedResults[result.resultHash] = true` before external calls, then transfer and deposit the allocation amounts. On withdrawal it burns vault shares, then `withdrawProRata(shares, totalSupplyBefore)` redeems each tracked adapter position proportionally. `IdleAdapter` holds FXRP. `MockStrategyAdapter` is constructed with a displayed name and risk score and must be named Firelight Simulation or SparkDEX Simulation in UI/docs.
+Only the bound vault may call `StrategyRouter.rebalance` or `withdrawProRata`. `SignalVault` verifies owner, vault, canonical hash, commitment, nonce and EIP-712 signature, writes replay state before external calls, then invokes `rebalance`. Rebalance pulls liquid vault FXRP, withdraws all tracked adapter shares, and deposits the combined balance under the new BPS. On withdrawal, direct vault FXRP and every adapter position are redeemed proportionally. The fourth adapter absorbs allocation division remainder; withdrawal dust remains bounded and is recovered on final redemption.
 
 - [ ] **Step 4: Verify the full contract security matrix**
 

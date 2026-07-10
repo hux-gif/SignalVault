@@ -58,6 +58,7 @@ contract IntentVerifier is EIP712, Ownable {
         view
         returns (bool)
     {
+        // forge-lint: disable-next-item(block-timestamp)
         if (
             result.chainId != block.chainid || result.deadline < block.timestamp
                 || !_isValidAllocation(result.allocation)
