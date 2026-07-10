@@ -1,0 +1,12 @@
+{
+  "name": "signalvault",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "local-signer",
+    "frontend"
+  ],
+  "scripts": {
+    "test": "npm run test --workspaces --if-present"
+  }
+}

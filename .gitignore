@@ -1,0 +1,11 @@
+/out/
+/cache/
+/broadcast/
+/node_modules/
+/tools/
+/lib/
+/.next/
+/.env
+/.env.*
+!/local-signer/.env.example
+*.zip
