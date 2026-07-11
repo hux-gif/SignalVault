@@ -1,12 +1,14 @@
 # SignalVault Gate 3: Fee-Aware Upshift Router Economics
 
-**Status:** Proposed for review
+**Status:** Architecture approved; required amendments incorporated for acceptance
 
 **Date:** 2026-07-11
 
 **Author:** `hux-gif`
 
 **Repository baseline:** `main` at `8380d1e`
+
+**Document revision baseline:** `470a3e2`
 **Scope:** Economic model and interfaces only; no implementation is authorized by this document
 
 ## 1. Purpose and verified facts
@@ -23,9 +25,9 @@ Gate 2C established the following facts:
 - Upshift LP-token approval was not required in the verified flow.
 - Underlying and LP allowances were zero after the verified round trip.
 - The vault is a proxy. Its fee and behavior may change; 50 BPS is an observation, not a constant for SignalVault.
-- A proxy's direct underlying balance is not its NAV and must not be used as the position valuation.
+- The Upshift proxy's direct underlying balance is not the protocol NAV and must not be used as the position valuation. By contrast, underlying held directly by SignalVault's adapter is owned by SignalVault and must be counted exactly once.
 
-The [Flare Developer Hub instant-redeem guide](https://dev.flare.network/fxrp/upshift/instant-redeem) independently documents that instant redemption burns LP shares, returns underlying immediately subject to a fee, and that `previewRedemption` exposes before-fee and after-fee amounts. The live Gate 2C report, rather than the guide's illustrative output, is authoritative for the measured Coston2 value of 50 BPS.
+The [Flare Developer Hub deposit guide](https://dev.flare.network/fxrp/upshift/deposit) names the two native deposit-preview outputs expected shares and amount in reference tokens. The [instant-redeem guide](https://dev.flare.network/fxrp/upshift/instant-redeem) independently documents that instant redemption burns LP shares, returns underlying immediately subject to a fee, and that `previewRedemption` exposes before-fee and after-fee amounts. The live Gate 2C report, rather than either guide's illustrative output, is authoritative for the measured Coston2 value of 50 BPS.
 
 The current contracts conflict with production economics in three important ways:
 
@@ -102,10 +104,19 @@ For UpshiftAdapter:
 
 ```text
 UpshiftAdapter.totalAssets =
-    previewRedemption(positionShares, true).assetsAfterFee
+    directUnderlyingBalance
+  + previewRedemption(positionShares, true).assetsAfterFee
+
+UpshiftAdapter.grossAssets =
+    directUnderlyingBalance
+  + previewRedemption(positionShares, true).assetsBeforeFee
+
+UpshiftAdapter.availableLiquidity =
+    directUnderlyingBalance
+  + immediatelyRedeemableNetPositionValue
 ```
 
-When `positionShares() == 0`, `totalAssets()`, `grossAssets()`, `availableLiquidity()`, and `previewRedeem(0)` return zero locally without calling Upshift. This permits an empty Vault to price its first deposit even if the protocol rejects a zero-share preview. For nonzero position shares, zero gross output, net output greater than gross, or otherwise inconsistent preview data fails closed; it is not treated as an empty position.
+When `positionShares() == 0`, the position component of `totalAssets()`, `grossAssets()`, `availableLiquidity()`, and `previewRedeem(0)` is zero locally without calling Upshift; direct underlying is still included in the first three views. This permits an empty protocol position to price a first deposit and ensures donated underlying is never invisible. For nonzero position shares, zero gross output, net output greater than gross, or otherwise inconsistent preview data fails closed; it is not treated as an empty position.
 
 `grossAssets()` uses the same held shares but returns `assetsBeforeFee`. No state-changing or share-accounting path may substitute gross assets for net assets.
 
@@ -174,7 +185,7 @@ All divisions round down unless a formula explicitly says `ceilDiv`. A one-small
 
 ### 3.6 Pauses and preview failure
 
-`withdrawalsPaused()` does not by itself change the fee-adjusted marked valuation if `previewRedemption` still returns a trustworthy value; it changes immediate liquidity to zero. Consequently, all deposits and all rebalances stop while withdrawals are paused. Withdrawals fully covered by Vault/Router/Idle liquidity may continue because this is a personal single-owner Vault; they cannot consume the illiquid Upshift mark or transfer more than the owner's marked net share value.
+`withdrawalsPaused()` does not by itself change the fee-adjusted marked valuation if `previewRedemption` still returns a trustworthy value; it changes the LP-position liquidity component to zero. Consequently, all deposits and all rebalances stop while withdrawals are paused. Withdrawals fully covered by Vault/Router/Idle or adapter-direct underlying may continue because this is a personal single-owner Vault; they cannot consume the illiquid Upshift position mark or transfer more than the owner's marked net share value.
 
 If `previewRedemption` reverts, SignalVault cannot safely price deposits, shares, or ordinary withdrawals. Net `totalAssets()` must fail closed by reverting; it must not use stale or gross data. Deposits and rebalances also revert. Recovery is limited to the explicit owner emergency path described in Section 9.
 
@@ -192,7 +203,8 @@ The selected order is:
 SignalVault liquid
 → StrategyRouter liquid
 → IdleAdapter
-→ Upshift only for the remaining deficit
+→ UpshiftAdapter direct underlying
+→ Upshift LP redemption only for the remaining deficit
 ```
 
 SignalVault is personal and has one immutable owner; there is no multi-user first-mover allocation problem. Cost minimization for that owner is therefore preferable to pro-rata strategy liquidation.
@@ -216,13 +228,24 @@ burn shares
 transfer exactly assetsOwed to owner
 ```
 
-`withdrawAssets` first uses Router liquid, then Idle, then Upshift. If an Upshift share redemption returns more underlying than the exact deficit, Router transfers only the requested amount and retains the excess as Router liquid. If available immediate liquidity is insufficient, the whole normal withdrawal reverts.
+`withdrawAssets` first uses Router liquid, then Idle, then calls `UpshiftAdapter.withdrawLiquid` for any direct underlying held by that adapter, and only then redeems Upshift LP shares. If a share redemption returns more underlying than the exact deficit, Router transfers only the requested amount and retains the excess as Router liquid. If available immediate liquidity is insufficient, the whole normal withdrawal reverts.
 
 The function is non-reentrant. Revert atomicity restores the burn and all protocol calls if any postcondition fails.
 
 ### 4.3 Upshift instant-liquidity limit
 
-`availableLiquidity()` for Upshift is zero when withdrawals are paused. Otherwise it is the maximum after-fee amount redeemable from the adapter's held shares without exceeding the live `maxWithdrawalAmount()` gross-asset constraint. Computing it may require a preview-bounded share search; it must not assume that the limit is denominated in shares.
+UpshiftAdapter direct underlying is liquid even when protocol withdrawals are paused. Its position-liquidity component is zero while paused; otherwise it is a conservatively verified after-fee amount redeemable from held shares under the live `maxWithdrawalAmount()`.
+
+The [Flare status guide](https://dev.flare.network/fxrp/upshift/status) formats `maxWithdrawalAmount()` using reference-asset decimals, which supports reference-asset denomination. Gate 2C and the public guide do not prove whether live implementation code compares the limit with gross preview output, net preview output, a per-call amount, a remaining global/user quota, or another reference-asset accounting value. The design therefore does not call it a gross constraint.
+
+Until Gate 4 proves the live comparison rule from verified implementation code or boundary behavior, every candidate share amount is conservatively eligible only when both conditions hold:
+
+```text
+previewGross <= maxWithdrawalAmount
+previewNet   <= maxWithdrawalAmount
+```
+
+This is a SignalVault safety restriction, not a claim about Upshift internals. A bounded search performs at most 64 `previewRedemption` calls and returns the greatest verified-safe lower bound reached; it never loops until exact convergence. A zero or ambiguous live limit permits direct-underlying withdrawal but makes position liquidity zero. Gate 4 must test `gross == limit`, `gross == limit + 1`, `net == limit`, and `net == limit + 1` before finalizing the search rule.
 
 Normal withdrawal never requests more than `availableLiquidity()`. If the waterfall total is below `assetsOwed`, it reverts before destructive state is committed.
 
@@ -231,6 +254,8 @@ Normal withdrawal never requests more than `availableLiquidity()`. If the waterf
 ### 5.1 Target definition
 
 Current and target position values are measured in net underlying assets. Targets are defined against post-operation net NAV, because moving assets into Upshift can immediately lower net-liquidation NAV.
+
+For allocation weights, Upshift exposure is only the net value of LP position shares. Underlying held directly by UpshiftAdapter remains part of Vault NAV but is classified with Idle/liquid assets until swept; its contract address does not turn it into protocol exposure.
 
 For Coston2 P0:
 
@@ -268,31 +293,33 @@ The Router redeems only enough shares to put Upshift within `allocationTolerance
 Three calculation choices were considered:
 
 1. **One-step proportional approximation:** cheap but can undershoot due to non-linear previews, fee rounding, or a changed vault exchange rate.
-2. **Bounded preview iteration:** starts with a proportional ceiling estimate and refines it with at most two scaling passes.
+2. **Bounded preview iteration:** starts with a proportional ceiling estimate and permits at most one scaled refinement, for two candidate evaluations total.
 3. **Full exact solver:** binary-searches or otherwise solves every discontinuity exactly, adding gas and failure surface without a P0 economic benefit.
 
 P0 selects bounded preview iteration. It is simpler than a full solver while the final tolerance and post-NAV checks make approximation safe.
 
 ```text
-requiredNet = currentUpshiftNet - provisionalTargetUpshift
+requiredPositionNet =
+    max(currentUpshiftPositionNet - provisionalTargetUpshift, 0)
 heldShares  = adapter.positionShares()
 
-candidateShares = ceilDiv(heldShares * requiredNet, currentUpshiftNet)
+candidateShares =
+    ceilDiv(heldShares * requiredPositionNet, currentUpshiftPositionNet)
 candidateShares = min(candidateShares, heldShares)
 
-repeat at most twice:
+evaluate at most two candidates total:
     (gross, net) = adapter.previewRedeem(candidateShares)
-    if net is within allocation tolerance of requiredNet:
+    if net is within allocation tolerance of requiredPositionNet:
         break
-    if net < requiredNet:
+    if net < requiredPositionNet:
         candidateShares = min(
             heldShares,
-            ceilDiv(candidateShares * requiredNet, max(net, 1))
+            ceilDiv(candidateShares * requiredPositionNet, max(net, 1))
         )
     else:
         candidateShares = max(
             1,
-            floor(candidateShares * requiredNet / net)
+            floor(candidateShares * requiredPositionNet / net)
         )
 
 require previewed net does not exceed live instant-liquidity capacity
@@ -316,7 +343,7 @@ postNAV     = postUpshift + postIdle
 target      = floor(postNAV * upshiftBps / 10_000)
 ```
 
-P0 again uses at most two proportional scaling passes to find `x` such that `postUpshift` is within allocation tolerance of `target`. The candidate is capped by available fee-free liquid. A zero-share or zero-net preview reverts. The Router derives `minSharesOut` from the preview and executes only the final candidate.
+The state snapshot classifies adapter-direct underlying as Idle liquidity and only LP-position net value as Upshift exposure. If turnover qualifies for execution, Router sweeps that direct underlying with `withdrawLiquid` before moving strategy assets; the sweep does not change NAV or weights. A no-op or below-threshold result performs no sweep and no external call. P0 then evaluates at most two deposit candidates—the initial estimate and one proportional refinement—to find `x` such that `postUpshift` is within allocation tolerance of `target`. Because each adapter candidate composes native deposit and redemption previews, the increase path makes at most four Upshift view calls. The candidate is capped by available fee-free liquid. A zero-share, zero-reference-amount, zero-gross, or zero-net preview reverts. Router derives `minSharesOut` from the final preview and executes only the final candidate.
 
 After deposit, the adapter reports actual shares from its LP-token balance delta. Router recomputes the adapter's net value from the actual position, then applies preview-deviation, post-NAV loss, and allocation-tolerance checks. No fee value is hardcoded.
 
@@ -329,13 +356,15 @@ function rebalance(resultHash, allocation, signedLimits, fundingAssets):
     require cooldown elapsed
     require Router entry underlying balance >= fundingAssets
 
-    pre = snapshotNetState()
+    pre = snapshotNetState(classify adapter direct underlying as Idle)
     require previews and asset bindings are healthy
 
     turnover = allocationTurnover(pre, allocation)
     if turnover < minimumAllocationChangeBps:
         emit RebalanceSkipped(...)
         return pre.nav
+
+    sweep adapter direct underlying to Router/Idle
 
     if Upshift is overweight beyond tolerance:
         shares = boundedSharesForRequiredNet(...)
@@ -369,13 +398,13 @@ interface IStrategyAdapterV2 {
     function positionToken() external view returns (address);
     function positionShares() external view returns (uint256);
 
-    /// Fee-adjusted marked underlying; immediately realizable when withdrawals are enabled.
+    /// Direct underlying plus fee-adjusted marked value of position shares.
     function totalAssets() external view returns (uint256 netAssets);
 
-    /// Nominal underlying before instant-exit fees; informational only.
+    /// Direct underlying plus nominal position value before instant-exit fees.
     function grossAssets() external view returns (uint256 grossAssets_);
 
-    /// Maximum net underlying immediately redeemable under live protocol limits.
+    /// Direct underlying plus maximum net position value immediately redeemable.
     function availableLiquidity() external view returns (uint256 netAssets);
 
     /// Explicit live state used to distinguish pause/limit conditions from a zero position.
@@ -385,7 +414,7 @@ interface IStrategyAdapterV2 {
         returns (
             bool depositsEnabled,
             bool withdrawalsEnabled,
-            uint256 maxGrossWithdrawal,
+            uint256 maxWithdrawalReferenceAmount,
             uint256 rawInstantRedemptionFee
         );
 
@@ -405,6 +434,11 @@ interface IStrategyAdapterV2 {
         external
         returns (uint256 sharesReceived);
 
+    /// Transfers exactly `assets` from direct underlying without redeeming shares.
+    function withdrawLiquid(uint256 assets)
+        external
+        returns (uint256 assetsReceived);
+
     function redeem(uint256 shares, uint256 minAssetsOut)
         external
         returns (uint256 assetsReceived);
@@ -417,25 +451,50 @@ interface IStrategyAdapterV2 {
 
 `positionToken()` is required for binding checks and emergency recovery. `protocolStatus()` is required because zero available liquidity alone cannot distinguish a pause, a live limit, and an empty position. Capability-profile membership remains Router configuration rather than an adapter claim. `name()` and `riskScore()` are not required for safe execution and are excluded from this economic interface; they may live in an optional metadata interface.
 
-### 6.1 Measurement and reconciliation
+### 6.1 Upshift preview mapping
+
+The adapter's `previewDeposit` is a composed view, not a direct renaming of the protocol function. The native Upshift call returns shares and `amountInReferenceTokens`; the latter is not specified as the new shares' immediate net-liquidation value. The adapter performs:
+
+```text
+(shares, referenceAmount) =
+    upshift.previewDeposit(asset, assets)
+
+(gross, net) =
+    upshift.previewRedemption(shares, true)
+
+require shares > 0
+require referenceAmount > 0
+require gross > 0
+require net <= gross
+require net <= referenceAmount
+
+return (shares, net)
+```
+
+`net <= referenceAmount` is a conservative P0 consistency rule, not an asserted Upshift invariant. If a verified future implementation legitimately violates it, SignalVault fails closed until the relationship is reviewed and this specification is revised. Implementers must not use native `previewDeposit`'s second return value as `immediateNetValue`.
+
+Each candidate evaluation for increasing Upshift therefore makes exactly two protocol view calls: one `previewDeposit`, followed by one `previewRedemption`. The P0 solver evaluates at most two candidates total—the initial estimate and at most one refinement—for a maximum of four protocol view calls. Failure to reach allocation tolerance within that bound reverts.
+
+### 6.2 Measurement and reconciliation
 
 - `deposit` measures the adapter LP-token balance before and after the protocol call and returns the exact positive delta.
-- `redeem` measures the adapter underlying balance before and after `instantRedeem` because that protocol function has no return value.
+- `withdrawLiquid` requires `assets <= asset.balanceOf(adapter)`, transfers exactly that amount to Router without touching LP shares, and reconciles the Router balance delta.
+- `redeem` snapshots pre-existing direct underlying, measures only the positive underlying delta caused by `instantRedeem`, and transfers that measured redemption output to Router. Pre-existing direct underlying is not misreported as protocol output.
 - The adapter transfers the measured underlying to Router and Router independently measures its own balance delta. The returned value, adapter delta, and Router delta must agree.
-- `redeemAll` uses the actual `positionShares()` value, not a Router-maintained estimate.
+- `redeemAll` uses the actual `positionShares()` value, not a Router-maintained estimate, and transfers both all pre-existing direct underlying and the measured redemption output. It succeeds only when the adapter's final underlying and LP balances are zero.
 - A zero unexpected delta reverts.
 
-### 6.2 Allowance lifecycle
+### 6.3 Allowance lifecycle
 
 Only the underlying approval required for deposit is created. The adapter safely overwrites/reset-to-zero as required by the token, approves exactly the deposit amount, calls Upshift, then resets the allowance to zero and verifies it. No unlimited approval is allowed.
 
 The verified Upshift redemption path does not require LP approval, so the adapter must not invent one. If a future implementation requires a different approval flow, the exact-allowance and measured-output guards cause normal operation to fail until that behavior is explicitly reviewed.
 
-### 6.3 Access control and reentrancy
+### 6.4 Access control and reentrancy
 
 All state-changing adapter methods are `onlyRouter` and non-reentrant. The Router address, underlying asset, Upshift proxy, and expected LP token are fixed during one-time adapter initialization. Tokens cannot be rescued through the normal execution interface.
 
-### 6.4 Proxy assumptions
+### 6.5 Proxy assumptions
 
 The proxy address is stable but its implementation and configuration are not assumed stable. Every accounting view and every state-changing operation verifies every property that is observable through the verified protocol ABI before returning or mutating:
 
@@ -477,6 +536,12 @@ struct RiskConfiguration {
 interface IStrategyRouterV2 {
     function asset() external view returns (address);
     function vault() external view returns (address);
+    function upshiftAdapter() external view returns (address);
+    function idleAdapter() external view returns (address);
+    function capabilityProfile() external view returns (bytes32);
+    function routerConfigVersion() external view returns (uint256);
+    function riskConfigurationHash() external view returns (bytes32);
+    function routerConfigHash() external view returns (bytes32);
     function riskConfigured() external view returns (bool);
     function riskConfigurationFrozen() external view returns (bool);
     function riskConfiguration() external view returns (RiskConfiguration memory);
@@ -506,7 +571,57 @@ interface IStrategyRouterV2 {
 
 All state-changing functions are callable only by SignalVault. SignalVault checks `depositsEnabled()` before minting; it is false when local execution is paused, an enabled protocol reports deposits or withdrawals unavailable, or an observable binding check fails. `withdrawAssets` returns exactly the requested amount on success. Adapter over-redemption stays as Router liquid. `withdrawAll` returns the measured total transferred to SignalVault. Owner slippage protection is enforced once, at the Vault's final combined output, while each Router protocol call independently uses its preview-derived internal minimum.
 
-Rebalance limits cannot be supplied as unauthenticated caller preferences. The `resultHash`, allocation, capability profile, and limits come from one verified result and the limits are constrained to be no weaker than the Router's one-time risk configuration. The existing result `deadline` remains the only deadline; it is not duplicated inside `RebalanceLimits`.
+Rebalance limits cannot be supplied as unauthenticated caller preferences. The `resultHash`, allocation, capability profile, Router configuration identity, and limits come from one verified result. The existing result `deadline` remains the only deadline; it is not duplicated inside `RebalanceLimits`.
+
+V2 uses a new EIP-712 domain and cannot verify a V1 signature:
+
+```text
+name    = "SignalVault"
+version = "2"
+```
+
+The frozen configuration identifiers are defined exactly as follows:
+
+```solidity
+bytes32 constant COSTON2_PROFILE =
+    keccak256("SIGNALVAULT_COSTON2_UPSHIFT_IDLE_V1");
+
+bytes32 constant RISK_CONFIG_V1_DOMAIN =
+    keccak256("SIGNALVAULT_ROUTER_RISK_CONFIG_V1");
+
+bytes32 constant ROUTER_CONFIG_V1_DOMAIN =
+    keccak256("SIGNALVAULT_ROUTER_CONFIG_V1");
+
+uint256 constant ROUTER_CONFIG_VERSION = 1;
+
+riskConfigurationHash = keccak256(
+    abi.encode(
+        RISK_CONFIG_V1_DOMAIN,
+        minimumRebalanceInterval,
+        minimumAllocationChangeBps,
+        maximumRebalanceLossBps,
+        maximumPreviewDeviationBps,
+        allocationToleranceBps
+    )
+);
+
+routerConfigHash = keccak256(
+    abi.encode(
+        ROUTER_CONFIG_V1_DOMAIN,
+        block.chainid,
+        address(vault),
+        address(router),
+        asset,
+        upshiftAdapter,
+        idleAdapter,
+        COSTON2_PROFILE,
+        riskConfigurationHash,
+        ROUTER_CONFIG_VERSION
+    )
+);
+```
+
+The Router computes and freezes these values only after risk configuration, adapters, and Vault binding are complete. Including the signed Vault alone would bind its immutable Router only indirectly; the signed `routerConfigHash` makes the Router, asset, exact adapters, capability, risk configuration, chain, and configuration version explicit.
 
 The exact signed-message extension is:
 
@@ -516,6 +631,7 @@ struct TEEResultV2 {
     address vault;
     bytes32 intentCommitment;
     bytes32 capabilityProfile;
+    bytes32 routerConfigHash;
     Allocation allocation;
     uint256 nonce;
     uint256 deadline;
@@ -529,10 +645,58 @@ struct TEEResultV2 {
 The flattened EIP-712 type string is:
 
 ```text
-TEEResultV2(address user,address vault,bytes32 intentCommitment,bytes32 capabilityProfile,uint16 upshiftBps,uint16 firelightBps,uint16 sparkdexBps,uint16 idleBps,uint256 nonce,uint256 deadline,uint256 ftsoPriceTimestamp,uint256 chainId,uint256 minimumPostNAV,uint16 maximumRebalanceLossBps,uint16 maximumPreviewDeviationBps,uint16 allocationToleranceBps,bytes32 resultHash)
+TEEResultV2(address user,address vault,bytes32 intentCommitment,bytes32 capabilityProfile,bytes32 routerConfigHash,uint16 upshiftBps,uint16 firelightBps,uint16 sparkdexBps,uint16 idleBps,uint256 nonce,uint256 deadline,uint256 ftsoPriceTimestamp,uint256 chainId,uint256 minimumPostNAV,uint16 maximumRebalanceLossBps,uint16 maximumPreviewDeviationBps,uint16 allocationToleranceBps,bytes32 resultHash)
 ```
 
-`resultHash` is `keccak256(abi.encode(...))` over every preceding field in exactly that order, excluding the type hash and excluding `resultHash` itself. The EIP-712 struct hash uses the same order, prefixed by `TEERESULT_V2_TYPEHASH` and including the already-computed `resultHash` last. SignalVault recomputes both, verifies signature/profile/limits/replay protection, measures and pushes its exact liquid underlying to Router, then calls `router.rebalance(resultHash, allocation, limits, fundingAssets)`. `fundingAssets` is measured runtime state and is intentionally not signed; it cannot alter the authenticated weights or weaken limits. The Coston2 profile identifier is `keccak256("SIGNALVAULT_COSTON2_UPSHIFT_IDLE_V1")`.
+Canonical result-hash semantics are independently versioned:
+
+```solidity
+bytes32 constant RESULT_V2_DOMAIN =
+    keccak256("SIGNALVAULT_TEE_RESULT_V2");
+
+resultHash = keccak256(
+    abi.encode(
+        RESULT_V2_DOMAIN,
+        result.user,
+        result.vault,
+        result.intentCommitment,
+        result.capabilityProfile,
+        result.routerConfigHash,
+        result.allocation.upshiftBps,
+        result.allocation.firelightBps,
+        result.allocation.sparkdexBps,
+        result.allocation.idleBps,
+        result.nonce,
+        result.deadline,
+        result.ftsoPriceTimestamp,
+        result.chainId,
+        result.limits.minimumPostNAV,
+        result.limits.maximumRebalanceLossBps,
+        result.limits.maximumPreviewDeviationBps,
+        result.limits.allocationToleranceBps
+    )
+);
+```
+
+The EIP-712 struct hash uses the flattened type-string order above, prefixed by `TEERESULT_V2_TYPEHASH` and including the already-computed `resultHash` last. Solidity, TypeScript typed data, canonical hashing, and the golden fixture use these exact fields and order.
+
+SignalVault recomputes both hashes and requires:
+
+```text
+result.capabilityProfile == router.capabilityProfile()
+result.routerConfigHash  == router.routerConfigHash()
+
+signed.maximumRebalanceLossBps
+    <= frozen.maximumRebalanceLossBps
+
+signed.maximumPreviewDeviationBps
+    <= frozen.maximumPreviewDeviationBps
+
+signed.allocationToleranceBps
+    <= frozen.allocationToleranceBps
+```
+
+`minimumPostNAV` is a transaction-specific absolute floor and has no corresponding Router maximum to weaken. After signature, profile, configuration, limits, deadline, chain, and replay checks, SignalVault measures and pushes its exact liquid underlying to Router, then calls `router.rebalance(resultHash, allocation, limits, fundingAssets)`. `fundingAssets` is measured runtime state and is intentionally not signed; it cannot alter authenticated weights or weaken limits.
 
 The exact Vault-facing economic surface is:
 
@@ -562,6 +726,7 @@ event AssetsWithdrawn(
     uint256 requestedAssets,
     uint256 routerLiquidUsed,
     uint256 idleAssetsUsed,
+    uint256 upshiftDirectUnderlyingUsed,
     uint256 upshiftSharesRedeemed,
     uint256 upshiftAssetsReceived
 );
@@ -584,7 +749,7 @@ event Rebalanced(
 );
 ```
 
-Adapter deposit/redeem events must include requested input, previewed output, actual output, and the live raw fee value for auditability.
+Adapter deposit/redeem events must include requested input, previewed output, actual output, and the live raw fee value for auditability. `withdrawLiquid` emits its requested and transferred direct-underlying amounts separately from protocol redemption output.
 
 ## 8. Loss and churn controls
 
@@ -613,8 +778,8 @@ Additional definitions:
 
 | Condition | Deposit / rebalance | Normal withdrawal | Emergency recovery |
 |---|---|---|---|
-| `withdrawalsPaused() == true` | All deposits and rebalances revert; signed weights are never silently changed | Vault/Router/Idle-funded withdrawals succeed if preview still prices shares; any Upshift deficit reverts | Owner may withdraw available underlying or recover position tokens |
-| `maxWithdrawalAmount()` below deficit | Rebalance reduction above the live limit reverts | Use waterfall; revert atomically if total immediate liquidity cannot meet `assetsOwed` | Owner may withdraw available liquid and explicitly recover remaining position tokens |
+| `withdrawalsPaused() == true` | All deposits and rebalances revert; signed weights are never silently changed | Vault/Router/Idle/adapter-direct underlying succeeds if preview still prices shares; any LP-redemption deficit reverts | Owner may withdraw available underlying or recover position tokens |
+| `maxWithdrawalAmount()` conservatively below candidate gross or net | Rebalance reduction above the verified-safe limit reverts | Use waterfall; revert atomically if total verified immediate liquidity cannot meet `assetsOwed` | Owner may withdraw available liquid and explicitly recover remaining position tokens |
 | `previewRedemption()` reverts | Revert and pause new Upshift exposure | Ordinary share pricing/withdrawal reverts; never use stale NAV | Owner-only recovery path; no fabricated asset value |
 | Actual output below permitted preview deviation | Revert entire transaction | Revert entire transaction | Only explicit recovery with owner-specified minimum can use a wider bound |
 | Proxy implementation changes | Off-chain monitor instructs owner pause; on-chain observable binding/economic checks remain mandatory | Fee-free sources may be used only if NAV preview remains trustworthy; otherwise revert | May recover position tokens after owner pause |
@@ -649,9 +814,13 @@ Upshift: verified real integration
 Idle:    underlying held without protocol exposure
 ```
 
-The existing four-field `Allocation` may remain as the wire representation during migration only if the Coston2 capability validator requires `firelightBps == 0`, `sparkdexBps == 0`, and `upshiftBps + idleBps == 10_000`. Unsupported weights are rejected, never remapped. The local signer must eventually produce a Coston2-specific two-strategy semantic profile, and the profile/capability identifier must be included in the canonical signed result before deployment.
+Gate 4 retains the existing four-field `Allocation` wire representation to minimize signer and fixture migration, but freezes its Coston2 semantics to two strategies. The validator requires `firelightBps == 0`, `sparkdexBps == 0`, and `upshiftBps + idleBps == 10_000`. Unsupported weights are rejected, never remapped. The local signer produces this Coston2-specific semantic profile, and both `capabilityProfile` and `routerConfigHash` are included in the canonical signed result.
 
 Local Anvil tests may retain mock four-strategy profiles, but their network and UI labels must say mock. No Coston2 deployment may route user assets to those mocks.
+
+### 10.3 V2 deployment boundary
+
+Gate 4 implements independent `SignalVaultV2`, `StrategyRouterV2`, `IntentVerifierV2`, `UpshiftAdapterV2`, and `IdleAdapterV2` contracts. It does not upgrade, mutate in place, or reuse the verified P0 contract addresses. The V1/P0 contracts and fixtures remain the mock/local baseline; the V2 set receives new addresses and is deployed separately to Coston2 after its tests pass. This boundary matches the EIP-712 domain version and canonical result-hash version separation.
 
 ## 11. Security invariants
 
@@ -663,20 +832,22 @@ The later implementation must enforce and test all of the following:
 4. Each adverse actual-versus-preview deviation is within `maximumPreviewDeviationBps`.
 5. Adapter return values equal measured adapter deltas and measured Router deltas.
 6. Adapter-reported position shares equal its actual LP-token balance.
-7. Existing strategy assets are neither double-deposited nor double-counted during rebalance.
-8. A partial withdrawal transfers no more than the owner's net share value.
-9. A normal withdrawal is atomic: it either pays exactly `assetsOwed` or reverts.
-10. Fee-free liquidity is exhausted before any Upshift redemption.
-11. Upshift redemption touches no more shares than needed within the configured allocation tolerance.
-12. Full withdrawal redeems all position shares and leaves zero recoverable underlying after sweeping intermediate rounding remainders.
-13. Underlying allowances are exact, safely overwritten, and zero after each call.
-14. No LP allowance is created unless a separately reviewed implementation requires it.
-15. Unsupported Coston2 strategy weights cannot route funds to mocks or be silently moved.
-16. Only SignalVault can mutate Router state, only Router can mutate adapters, and only the immutable owner can authorize Vault execution or emergency recovery.
-17. Reentrancy cannot observe or create an inconsistent share/NAV state.
-18. Proxy, asset, and LP-token binding changes fail closed.
-19. No-op and below-threshold allocations make zero external protocol calls.
-20. Full-width integer arithmetic cannot overflow, and every rounding direction is explicit.
+7. Adapter-direct underlying is included once in net, gross, and liquid views and is withdrawn before LP redemption.
+8. Existing strategy assets are neither double-deposited nor double-counted during rebalance.
+9. A partial withdrawal transfers no more than the owner's net share value.
+10. A normal withdrawal is atomic: it either pays exactly `assetsOwed` or reverts.
+11. Fee-free liquidity is exhausted before any Upshift redemption.
+12. Upshift redemption touches no more shares than needed within the configured allocation tolerance.
+13. Full withdrawal redeems all position shares and leaves zero recoverable underlying after sweeping intermediate rounding remainders.
+14. Underlying allowances are exact, safely overwritten, and zero after each call.
+15. No LP allowance is created unless a separately reviewed implementation requires it.
+16. Signed profile and Router configuration hashes equal the bound Router values; signed BPS limits are no weaker than frozen limits.
+17. Unsupported Coston2 strategy weights cannot route funds to mocks or be silently moved.
+18. Only SignalVault can mutate Router state, only Router can mutate adapters, and only the immutable owner can authorize Vault execution or emergency recovery.
+19. Reentrancy cannot observe or create an inconsistent share/NAV state.
+20. Proxy, asset, and LP-token binding changes fail closed.
+21. No-op and below-threshold allocations make zero external protocol calls.
+22. Full-width integer arithmetic cannot overflow, and every rounding direction is explicit.
 
 ## 12. Test specification for Gate 4 and later
 
@@ -690,6 +861,8 @@ The later implementation must enforce and test all of the following:
 - Six-decimal rounding for 0, 1, 10, 100, 10,000, and 100,000 smallest units.
 - Zero supply, zero NAV, zero preview shares, zero preview net, and zero-value strategy branches.
 - A zero-share position short-circuits locally, while a nonzero position with zero or inconsistent redemption output fails closed.
+- Adapter-direct underlying is included once in net/gross/liquidity views even when position shares are zero or protocol withdrawals are paused.
+- Native `previewDeposit` reference amount is never treated as immediate net value; composed preview checks every required relation.
 - Preview failure makes net accounting fail closed.
 
 ### 12.2 Differential rebalance
@@ -697,8 +870,9 @@ The later implementation must enforce and test all of the following:
 - Upshift increase deposits only the computed delta; existing position shares remain untouched.
 - Upshift decrease redeems only the computed shares; retained shares equal the postcondition.
 - Increased Upshift target accounts for immediate net exit value rather than deposited gross assets.
-- Bounded calculation converges within two refinements or reverts without state change.
-- Solver oscillation, a zero candidate, a candidate above held shares, and failure to converge after two refinements each revert atomically.
+- Bounded calculation converges within two candidate evaluations or reverts without state change.
+- Solver oscillation, a zero candidate, a candidate above held shares, and failure after the one permitted refinement each revert atomically.
+- Upshift increase makes no more than four protocol preview calls across both candidate evaluations.
 - Exact unchanged allocation makes no adapter calls.
 - Below-threshold change makes no adapter calls and does not advance cooldown.
 - Cooldown rejects a qualifying early rebalance.
@@ -714,15 +888,16 @@ The later implementation must enforce and test all of the following:
 - Vault liquid alone satisfies withdrawal with zero Router/adapter calls.
 - Router liquid is used before Idle.
 - Idle is used before Upshift.
+- UpshiftAdapter direct underlying is used before any LP share redemption and `withdrawLiquid` reconciles exact Router receipt.
 - Upshift redeems only the final deficit.
 - Partial withdrawal transfers exactly the floor-valued net share amount; over-redemption remains Router liquid.
 - Full withdrawal redeems all position shares and leaves zero recoverable underlying after sweeping every intermediate rounding remainder.
 - Full withdrawal with nonzero Upshift shares reverts before burning when Upshift is paused, the live maximum is too low, preview reverts, or recoverable dust cannot be swept.
-- Full withdrawal with zero Upshift shares succeeds from Vault/Router/Idle even when Upshift withdrawals are paused.
+- Full withdrawal with zero Upshift shares succeeds from Vault/Router/Idle/adapter-direct underlying even when Upshift withdrawals are paused.
 - Paused Upshift still permits withdrawals fully covered by earlier waterfall tiers.
 - Paused Upshift rejects a withdrawal requiring Upshift.
-- `maxWithdrawalAmount` below the remaining deficit causes an atomic revert.
-- Gross-limit-to-net-available conversion respects fee and share rounding.
+- Conservative `maxWithdrawalAmount` tests cover `gross == limit`, `gross == limit + 1`, `net == limit`, and `net == limit + 1`.
+- The 64-call maximum search returns only a verified-safe lower bound and never assumes gross-versus-net protocol semantics.
 - Owner `minAssetsOut` below, equal to, and above `assetsOwed`.
 - Redemption with no Solidity return is reconciled by balance deltas.
 
@@ -748,11 +923,15 @@ The later implementation must enforce and test all of the following:
 - Coston2 profile accepts only Upshift/Idle summing to 10,000.
 - Any nonzero Firelight/SparkDEX Coston2 weight reverts and never touches a mock.
 - Signed limits cannot be loosened by the transaction submitter.
-- Every `TEEResultV2` field, including capability profile and each limit, has a one-field mutation test across Solidity and TypeScript; canonical hash, TypeHash, replay, and golden fixture remain byte-identical.
+- EIP-712 domain name/version reject V1 signatures under V2 and V2 signatures under V1.
+- Every `TEEResultV2` field, including capability profile, `routerConfigHash`, and each limit, has a one-field mutation test across Solidity and TypeScript; canonical hash, TypeHash, replay, and golden fixture remain byte-identical.
+- Any Router, Vault, asset, adapter, capability, risk hash, configuration version, or chain mutation changes `routerConfigHash` and invalidates the result.
+- `RESULT_V2_DOMAIN` separates canonical V2 result hashes from V1 even before EIP-712 domain wrapping.
 - Replay-protected below-threshold results cannot later be executed as qualifying changes.
 - End-to-end local tests compare event previews, actual deltas, Router net accounting, and Vault net accounting.
 - Vault-to-Router funding verifies both balance deltas, passes the measured `fundingAssets`, creates no Vault allowance, distinguishes old/donated Router liquid, counts every value once as Idle during target calculation, and rolls back on rebalance failure.
 - Direct donations to Vault, Router, IdleAdapter, and UpshiftAdapter are counted once; zero-supply and full-close handling cannot strand donated underlying.
+- Independent V2 deployment tests prove no P0 address is reused or upgraded in place.
 - Risk configuration tests cover caller authority, one-time initialization, freeze-on-bind, every BPS value at 0/10,000/10,001, tolerance-versus-minimum-change conflicts, and an owner mismatch between Router and Vault.
 
 ## 13. Explicit non-goals and next decision
@@ -766,4 +945,4 @@ This specification does not implement or authorize:
 - frontend, FTSO, TEE, or GCP work;
 - final production values for any risk limit.
 
-After this document is reviewed and approved, Gate 4 may produce a separate implementation plan. That plan must resolve the precise EIP-712 extension, off-chain proxy-upgrade monitor and owner-pause mechanics, emergency-recovery interface, and reviewed numeric P0 limits before code is written.
+After this amended document is accepted, Gate 4 may produce a separate implementation plan. That plan must implement—not redesign—the frozen EIP-712 V2/domain/config-hash structure above, and must detail the off-chain proxy-upgrade monitor, owner-pause mechanics, emergency-recovery interface, live `maxWithdrawalAmount` semantic verification, and reviewed numeric P0 limits before code is written.
