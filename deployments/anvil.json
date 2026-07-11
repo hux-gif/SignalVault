@@ -1,0 +1,93 @@
+{
+  "chainId": 31337,
+  "network": "anvil",
+  "fxrp": "0xa51c1fc2f0d1a1b8494ed1fe312d7c3a78ed91c0",
+  "verifier": "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82",
+  "router": "0x9a676e781a523b5d0c0e43731313a708cb607508",
+  "vault": "0xc6e7df5e7b4f2a278906862b61205850344d4e7d",
+  "adapters": {
+    "upshift": "0x0b306bf915c4d645ff596e518faf3f9669b97016",
+    "firelight": "0x959922be3caee4b8cd9a407cc3ac1c251c2007b1",
+    "sparkdex": "0x9a9f2ccfde556a7e9ff0848998aa4a0cfd8863ae",
+    "idle": "0x68b1d87f95878fe05b998f19b66f4baba5de1aed"
+  },
+  "transactions": {
+    "fxrp": {
+      "hash": "0xcde35f466bfad4df40ffaee705a6c7d50937bbdf6212f7e98eb2ba9bea0162c8",
+      "blockNumber": "13"
+    },
+    "verifier": {
+      "hash": "0xe06f6e1224c0bf2700417599cf4f94ff5638ab060373ca9c9983d99c5ed6fc38",
+      "blockNumber": "14"
+    },
+    "router": {
+      "hash": "0x083576721b952e039864382a19e631ffb69bb8cfb3f85f37544c94129af36260",
+      "blockNumber": "15"
+    },
+    "upshift": {
+      "hash": "0x1187363326a303d937afa15b8368c5dcee09da5aaa346e9370ed94d2700e8ef6",
+      "blockNumber": "16"
+    },
+    "firelight": {
+      "hash": "0xe044bb66305c8b52803156ad51b848ec6f94db7a3bf8c54efb5721e1af05c801",
+      "blockNumber": "17"
+    },
+    "sparkdex": {
+      "hash": "0x5075def73c5c23844a1459223c70d36591a744f90a9a9dbcc3d37cddf7bc9b82",
+      "blockNumber": "18"
+    },
+    "idle": {
+      "hash": "0x06c568f24eebcf8c869dbaf688e76d0a58950916d15f0e96744d33d55b7e020e",
+      "blockNumber": "19"
+    },
+    "configureAdapters": {
+      "hash": "0x12ee69ce58103bc17e6200411d2b6a8011a906be9a93901f0378156ff1c3d17a",
+      "blockNumber": "20"
+    },
+    "vault": {
+      "hash": "0x1d7cc52a8d36be72ddcf8763b99c25ad2c14d21a5a987fe4db3668cd98cd9c23",
+      "blockNumber": "21"
+    },
+    "bindVault": {
+      "hash": "0xa65af12cc590ba5016602fd4ae4ef88dc75cff5d66f7af5e6170dfcc56230714",
+      "blockNumber": "22"
+    },
+    "mint": {
+      "hash": "0xc35b0b0e5b26e3c5a0b6c8d4381598b2ffd83692348a5eec54cf0c7abe0e7644",
+      "blockNumber": "23"
+    },
+    "approve": {
+      "hash": "0xbaccaa9145adc6ad25e6452897b89376a0ae25c5b2efbd92cb7ba98a68914d1b",
+      "blockNumber": "24"
+    },
+    "deposit": {
+      "hash": "0x4bef2697e757894cfe88b9be9cd4c438aa9626dd735d2ea0ea7de02f654ea9d9",
+      "blockNumber": "25"
+    },
+    "intent1": {
+      "hash": "0x286e41c36199dcf0d4d5f64c236a525609a5857aaadc3939ee255b7c7fd88c70",
+      "blockNumber": "26"
+    },
+    "allocation1": {
+      "hash": "0x4d20c656b4dc53b991d75874e25b75a2151950c37b542111693c1bf69c11d2bb",
+      "blockNumber": "27"
+    },
+    "intent2": {
+      "hash": "0xe5e7219951ab0b175ba50df2240ed66c50728234e6c155ca57c79c475ce7d026",
+      "blockNumber": "28"
+    },
+    "allocation2": {
+      "hash": "0x7ee12b90e31053b6e0c6344584882756d9770f02520bef29bb38b5622232cf2c",
+      "blockNumber": "29"
+    },
+    "partialWithdrawal": {
+      "hash": "0xe6f9018c4ad99533f6b6c12944dbec2ec006068ed88b7c645e28b39a8421ff93",
+      "blockNumber": "30"
+    },
+    "fullWithdrawal": {
+      "hash": "0xc8b53b6918f599ef877d5833364cadaa35ee41e445986436b990d523831e8b69",
+      "blockNumber": "31"
+    }
+  },
+  "deployedAt": "2026-07-11T03:52:54.960Z"
+}

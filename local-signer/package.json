@@ -6,7 +6,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "start": "tsx src/server.ts"
+    "start": "tsx src/server.ts",
+    "e2e:anvil": "tsx src/e2e.ts"
   },
   "dependencies": {
     "viem": "^2.38.5"

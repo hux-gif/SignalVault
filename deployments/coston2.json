@@ -1,0 +1,16 @@
+{
+  "chainId": 114,
+  "network": "coston2",
+  "fxrp": null,
+  "verifier": null,
+  "router": null,
+  "vault": null,
+  "adapters": {
+    "upshift": null,
+    "firelight": null,
+    "sparkdex": null,
+    "idle": null
+  },
+  "transactions": null,
+  "deployedAt": null
+}
