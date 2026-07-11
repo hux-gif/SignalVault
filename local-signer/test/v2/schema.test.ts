@@ -18,7 +18,7 @@ const result: TEEResultV2 = {
   user: "0x0000000000000000000000000000000000001001",
   vault: "0x0000000000000000000000000000000000001002",
   intentCommitment: `0x${"20".repeat(32)}`,
-  capabilityProfile: `0x${"30".repeat(32)}`,
+  capabilityProfile: "0x7498d31e561984b05a8781d83e877e14abc931043446e1f275b8ee0a7db7f208",
   routerConfigHash: `0x${"40".repeat(32)}`,
   upshiftBps: 5_000,
   firelightBps: 0,
@@ -76,6 +76,26 @@ describe("V2 canonical schema", () => {
     const signature = await signTEEResultV2(result, verifier, privateKey);
     expect(await recoverAddress({ hash: teeResultV2Digest(result, verifier), signature }))
       .toBe("0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A");
+  });
+
+  it.each([
+    ["nonzero Firelight", { firelightBps: 1, upshiftBps: 4_999 }],
+    ["nonzero SparkDEX", { sparkdexBps: 1, upshiftBps: 4_999 }],
+    ["total 9,999", { upshiftBps: 4_999 }],
+    ["total 10,001", { upshiftBps: 5_001 }],
+    ["fractional BPS", { upshiftBps: 5_000.5, idleBps: 4_999.5 }],
+    ["wrong capability profile", { capabilityProfile: `0x${"30".repeat(32)}` as Hex }],
+  ])("refuses to sign a Solidity-invalid Coston2 result: %s", (_name, mutation) => {
+    expect(() => signTEEResultV2({ ...result, ...mutation }, verifier, privateKey))
+      .toThrow(/Coston2|BPS/);
+  });
+
+  it("binds the verifier address and invalidates the original signature under another verifier", async () => {
+    const otherVerifier = "0x0000000000000000000000000000000000002003" as Address;
+    const signature = await signTEEResultV2(result, verifier, privateKey);
+    expect(teeResultV2Digest(result, otherVerifier)).not.toBe(teeResultV2Digest(result, verifier));
+    expect(await recoverAddress({ hash: teeResultV2Digest(result, otherVerifier), signature }))
+      .not.toBe("0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A");
   });
 
   it("changes the canonical result hash for every unsigned result field", () => {

@@ -10,7 +10,7 @@ import type { V2ValidationContext } from "../../src/v2/types.js";
 
 const vault = "0x0000000000000000000000000000000000001002" as Address;
 const intentVerifier = "0x0000000000000000000000000000000000001003" as Address;
-const capabilityProfile = `0x${"30".repeat(32)}` as Hex;
+const capabilityProfile = "0x7498d31e561984b05a8781d83e877e14abc931043446e1f275b8ee0a7db7f208" as Hex;
 const routerConfigHash = `0x${"40".repeat(32)}` as Hex;
 const validationContext: V2ValidationContext = {
   chainId: 114n,
@@ -85,6 +85,24 @@ describe("V2 JSON codec", () => {
     expect(() => parseAllocateRequestV2({ ...request, routerConfigHash: request.intentCommitment }, validationContext)).toThrow(/routerConfigHash/);
   });
 
+  it.each([
+    ["nonzero Firelight", { firelightBps: 1, upshiftBps: 4_999 }],
+    ["nonzero SparkDEX", { sparkdexBps: 1, upshiftBps: 4_999 }],
+    ["total 9,999", { upshiftBps: 4_999 }],
+    ["total 10,001", { upshiftBps: 5_001 }],
+  ])("rejects a Solidity-invalid Coston2 allocation: %s", (_name, mutation) => {
+    expect(() => parseAllocateRequestV2({ ...request, ...mutation }, validationContext))
+      .toThrow(/Coston2/);
+  });
+
+  it("rejects the wrong Coston2 capability profile even when it matches context", () => {
+    const wrongProfile = request.intentCommitment as Hex;
+    expect(() => parseAllocateRequestV2(
+      { ...request, capabilityProfile: wrongProfile },
+      { ...validationContext, capabilityProfile: wrongProfile },
+    )).toThrow(/Coston2/);
+  });
+
   it("serializes every integer response field as an exact decimal string", () => {
     const encoded = stringifyV2Response({
       result: parseAllocateRequestV2(request, validationContext),
@@ -101,5 +119,14 @@ describe("V2 JSON codec", () => {
   it("rejects unsafe response numbers before their precision can be misrepresented", () => {
     expect(() => stringifyV2Response({ nonce: Number.MAX_SAFE_INTEGER + 1 }))
       .toThrow(/safe integer/);
+  });
+
+  it.each([
+    ["fraction", 1.5],
+    ["NaN", Number.NaN],
+    ["positive infinity", Number.POSITIVE_INFINITY],
+    ["negative infinity", Number.NEGATIVE_INFINITY],
+  ])("rejects a non-finite or non-integer response number: %s", (_name, value) => {
+    expect(() => stringifyV2Response({ value })).toThrow(/finite safe integer/);
   });
 });

@@ -1,5 +1,6 @@
 import { getAddress, isAddress, isAddressEqual, isHex, type Address, type Hex } from "viem";
 import type { AllocateRequestV2, V2ValidationContext } from "./types.js";
+import { validateCoston2ResultV2 } from "./validation.js";
 
 const UINT16_MAX = (1 << 16) - 1;
 const UINT256_MAX = (1n << 256n) - 1n;
@@ -78,6 +79,10 @@ export function parseAllocateRequestV2(
   const capabilityProfile = bytes32(input.capabilityProfile, "capabilityProfile");
   const routerConfigHash = bytes32(input.routerConfigHash, "routerConfigHash");
   const chainId = parseUint256(input.chainId);
+  const upshiftBps = bps(input.upshiftBps, "upshiftBps");
+  const firelightBps = bps(input.firelightBps, "firelightBps");
+  const sparkdexBps = bps(input.sparkdexBps, "sparkdexBps");
+  const idleBps = bps(input.idleBps, "idleBps");
 
   if (!isAddressEqual(vault, context.vault)) invalid("vault does not match validation context");
   if (!isAddressEqual(intentVerifier, context.intentVerifier)) {
@@ -90,6 +95,13 @@ export function parseAllocateRequestV2(
   if (!sameHex(routerConfigHash, context.routerConfigHash)) {
     invalid("routerConfigHash does not match validation context");
   }
+  validateCoston2ResultV2({
+    capabilityProfile,
+    upshiftBps,
+    firelightBps,
+    sparkdexBps,
+    idleBps,
+  });
 
   return {
     user,
@@ -98,10 +110,10 @@ export function parseAllocateRequestV2(
     intentCommitment,
     capabilityProfile,
     routerConfigHash,
-    upshiftBps: bps(input.upshiftBps, "upshiftBps"),
-    firelightBps: bps(input.firelightBps, "firelightBps"),
-    sparkdexBps: bps(input.sparkdexBps, "sparkdexBps"),
-    idleBps: bps(input.idleBps, "idleBps"),
+    upshiftBps,
+    firelightBps,
+    sparkdexBps,
+    idleBps,
     nonce: parseUint256(input.nonce),
     deadline: parseUint256(input.deadline),
     ftsoPriceTimestamp: parseUint256(input.ftsoPriceTimestamp),
@@ -117,8 +129,10 @@ export function parseAllocateRequestV2(
 export function stringifyV2Response(value: unknown): string {
   return JSON.stringify(value, (_key, item: unknown) => {
     if (typeof item === "bigint") return item.toString();
-    if (typeof item === "number" && Number.isInteger(item)) {
-      if (!Number.isSafeInteger(item)) invalid("response numbers must be safe integers");
+    if (typeof item === "number") {
+      if (!Number.isFinite(item) || !Number.isSafeInteger(item)) {
+        invalid("response numbers must be finite safe integers");
+      }
       return item.toString();
     }
     return item;

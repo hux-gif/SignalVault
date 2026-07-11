@@ -1,6 +1,7 @@
 import { hashTypedData, type Address, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import type { TEEResultV2 } from "./types.js";
+import { validateCoston2ResultV2 } from "./validation.js";
 
 export const teeResultV2Types = {
   TEEResultV2: [
@@ -48,6 +49,7 @@ export function signTEEResultV2(
   verifier: Address,
   privateKey: Hex,
 ): Promise<Hex> {
+  validateCoston2ResultV2(result);
   return privateKeyToAccount(privateKey).signTypedData({
     domain: teeResultV2Domain(result.chainId, verifier),
     types: teeResultV2Types,
