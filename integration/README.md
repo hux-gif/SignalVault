@@ -58,6 +58,30 @@ reconcile, returned assets are nonzero, and used allowances are verified zero.
 Valid report statuses are `preflight_failed`, `deposit_failed`,
 `deposit_confirmed_redemption_failed`, and `success`.
 
+## Gate 2C economics calibration
+
+The economics command performs a private-key-free preview sweep at 10, 100,
+1,000, 10,000, 100,000, and 1,000,000 FTestXRP base units, proves the live fee
+expression against every sample, and then selects either 0.01 or 0.1 FTestXRP
+for one real calibration round trip:
+
+```powershell
+npm run upshift:economics:coston2
+```
+
+The script verifies the vault's EIP-1967 implementation binding to
+`0x94c1851B1631769147B62f8370E851682361CEe2` and checks the implementation
+runtime for `PUSH2 0x2710` at the recorded fee-path offsets. This runtime code
+evidence determines the 10,000 denominator. The six live previews are
+consistent with `net = gross - floor(gross * instantRedemptionFee / 10_000)`;
+they are supporting observations, not a unique proof by themselves because
+integer flooring can make nearby denominators observationally equivalent.
+Flare's official guide confirms that the second
+`previewRedemption(shares, true)` value is the after-fee amount.
+
+Results are written to `reports/upshift-coston2-economics.json`. Direct vault
+token balances are not used as NAV or share-price inputs.
+
 ## Official sources
 
 - <https://dev.flare.network/fassets/reference>

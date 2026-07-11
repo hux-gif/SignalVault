@@ -1,0 +1,193 @@
+{
+  "network": "coston2",
+  "chainId": 114,
+  "status": "success",
+  "verifiedAt": "2026-07-11T06:31:59.568Z",
+  "contracts": {
+    "fxrp": {
+      "address": "0x0b6A3645c240605887a5532109323A3E12273dc7",
+      "bytecodeBytes": 177
+    },
+    "vault": {
+      "address": "0x24c1a47cD5e8473b64EAB2a94515a196E10C7C81",
+      "bytecodeBytes": 1106
+    },
+    "implementation": {
+      "address": "0x94c1851B1631769147B62f8370E851682361CEe2",
+      "bytecodeBytes": 24294,
+      "proxySlot": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+      "bindingVerified": true
+    },
+    "lpToken": {
+      "address": "0xe084F7328DDaB082a139b880782dCC424d20a1DB",
+      "bytecodeBytes": 2550
+    }
+  },
+  "feeConfiguration": {
+    "rawInstantRedemptionFee": "50",
+    "denominator": "10000",
+    "interpretedFeeBps": "50",
+    "application": "feeAmount = floor(grossAssets * rawFee / 10000); netAssets = grossAssets - feeAmount",
+    "previewIncludesFee": true,
+    "source": {
+      "officialGuide": "https://dev.flare.network/fxrp/upshift/instant-redeem",
+      "implementation": "0x94c1851B1631769147B62f8370E851682361CEe2",
+      "runtimeBytecodeEvidence": [
+        {
+          "offset": "0x169b",
+          "opcodeBytes": "0x612710"
+        },
+        {
+          "offset": "0x16ac",
+          "opcodeBytes": "0x612710"
+        },
+        {
+          "offset": "0x16b3",
+          "opcodeBytes": "0x612710"
+        },
+        {
+          "offset": "0x16dc",
+          "opcodeBytes": "0x612710"
+        }
+      ],
+      "livePreviewConsistency": "Every six-amount preview sample is consistent with the application expression",
+      "evidenceBoundary": "Preview samples alone do not uniquely prove a denominator because integer flooring can make nearby denominators observationally equivalent; the denominator determination relies on the bound runtime bytecode opcode evidence."
+    }
+  },
+  "previewSweep": [
+    {
+      "inputAssets": "10",
+      "previewedShares": "9",
+      "previewedGrossAssets": "9",
+      "previewedNetAssets": "9",
+      "roundingLoss": "1",
+      "explicitFeeAmount": "0",
+      "totalLoss": "1",
+      "totalLossBps": "1000",
+      "impliedRedemptionFeeBps": "0",
+      "dominatedByOneUnitRounding": true
+    },
+    {
+      "inputAssets": "100",
+      "previewedShares": "99",
+      "previewedGrossAssets": "99",
+      "previewedNetAssets": "99",
+      "roundingLoss": "1",
+      "explicitFeeAmount": "0",
+      "totalLoss": "1",
+      "totalLossBps": "100",
+      "impliedRedemptionFeeBps": "0",
+      "dominatedByOneUnitRounding": true
+    },
+    {
+      "inputAssets": "1000",
+      "previewedShares": "996",
+      "previewedGrossAssets": "999",
+      "previewedNetAssets": "995",
+      "roundingLoss": "1",
+      "explicitFeeAmount": "4",
+      "totalLoss": "5",
+      "totalLossBps": "50",
+      "impliedRedemptionFeeBps": "40",
+      "dominatedByOneUnitRounding": false
+    },
+    {
+      "inputAssets": "10000",
+      "previewedShares": "9965",
+      "previewedGrossAssets": "9999",
+      "previewedNetAssets": "9950",
+      "roundingLoss": "1",
+      "explicitFeeAmount": "49",
+      "totalLoss": "50",
+      "totalLossBps": "50",
+      "impliedRedemptionFeeBps": "49",
+      "dominatedByOneUnitRounding": false
+    },
+    {
+      "inputAssets": "100000",
+      "previewedShares": "99650",
+      "previewedGrossAssets": "99999",
+      "previewedNetAssets": "99500",
+      "roundingLoss": "1",
+      "explicitFeeAmount": "499",
+      "totalLoss": "500",
+      "totalLossBps": "50",
+      "impliedRedemptionFeeBps": "49",
+      "dominatedByOneUnitRounding": false
+    },
+    {
+      "inputAssets": "1000000",
+      "previewedShares": "996507",
+      "previewedGrossAssets": "999999",
+      "previewedNetAssets": "995000",
+      "roundingLoss": "1",
+      "explicitFeeAmount": "4999",
+      "totalLoss": "5000",
+      "totalLossBps": "50",
+      "impliedRedemptionFeeBps": "49",
+      "dominatedByOneUnitRounding": false
+    }
+  ],
+  "selection": {
+    "selectedAmount": "10000",
+    "walletAssetsBefore": "9999999",
+    "tenPercentWalletLimit": "999999",
+    "maxWithdrawalAmount": "10000000000",
+    "reason": "0.01 FTestXRP has a nonzero fee and is not dominated by one-unit rounding"
+  },
+  "balances": {
+    "before": {
+      "walletAssets": "9999999",
+      "walletShares": "0",
+      "historicalBlock": "32728278"
+    },
+    "afterDeposit": {
+      "walletAssets": "9989999",
+      "walletShares": "9965",
+      "historicalBlock": "32728280"
+    },
+    "afterRedemption": {
+      "walletAssets": "9999949",
+      "walletShares": "0",
+      "historicalBlock": "32728286"
+    },
+    "source": "Read-only historical balanceOf calls against Coston2 at the confirmed transaction blocks"
+  },
+  "approval": {
+    "transactionHash": "0x624846091d4e37109f479228d55ac0984a775f9283dea9baf484b9f4c60eec70",
+    "blockNumber": "32728279",
+    "confirmed": true,
+    "amount": "10000"
+  },
+  "liveRoundTrip": {
+    "depositAmount": "10000",
+    "approvalTx": "0x624846091d4e37109f479228d55ac0984a775f9283dea9baf484b9f4c60eec70",
+    "depositTx": "0x47508f8e1d1673ba90356c77c76a2ddb46c64dc1b75a5d4a65e53c51d2854de3",
+    "depositBlock": "32728280",
+    "previewedShares": "9965",
+    "actualShares": "9965",
+    "sharePreviewDeviation": "0",
+    "redemptionTx": "0x284bddaefd8f6cc0b17d1dffff32a54df775a946e3c9f97ead3960443d29e089",
+    "redemptionBlock": "32728286",
+    "previewedGrossAssets": "9999",
+    "previewedNetAssets": "9950",
+    "actualAssetsReturned": "9950",
+    "roundingLoss": "1",
+    "explicitFeeAmount": "49",
+    "previewDeviation": "0",
+    "actualRoundTripLoss": "50",
+    "actualRoundTripLossBps": "50",
+    "explorerUrls": {
+      "approval": "https://coston2-explorer.flare.network/tx/0x624846091d4e37109f479228d55ac0984a775f9283dea9baf484b9f4c60eec70",
+      "deposit": "https://coston2-explorer.flare.network/tx/0x47508f8e1d1673ba90356c77c76a2ddb46c64dc1b75a5d4a65e53c51d2854de3",
+      "redemption": "https://coston2-explorer.flare.network/tx/0x284bddaefd8f6cc0b17d1dffff32a54df775a946e3c9f97ead3960443d29e089"
+    }
+  },
+  "lpApproval": {
+    "required": false
+  },
+  "allowancesAfter": {
+    "fxrp": "0",
+    "lpToken": "0"
+  }
+}
