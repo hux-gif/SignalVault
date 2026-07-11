@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {Test} from "forge-std/Test.sol";
 
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IntentVerifier} from "src/IntentVerifier.sol";
 import {IntentVerifierV2} from "src/v2/IntentVerifierV2.sol";
 import {SignalVaultHashesV2} from "src/v2/libraries/SignalVaultHashesV2.sol";
@@ -202,6 +203,19 @@ contract IntentVerifierV2Test is Test {
                 result, signDigest(verifier.hashTypedData(result), ROTATED_SIGNER_PK)
             )
         );
+    }
+
+    function testNonOwnerCannotRotateTrustedSigner() external {
+        address originalSigner = verifier.trustedSigner();
+        address nonOwner = address(0xBAD);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, nonOwner)
+        );
+        vm.prank(nonOwner);
+        verifier.setTrustedSigner(vm.addr(ROTATED_SIGNER_PK));
+
+        assertEq(verifier.trustedSigner(), originalSigner);
     }
 
     function testRejectsZeroRotatedTrustedSigner() external {
