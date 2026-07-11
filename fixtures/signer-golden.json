@@ -1,0 +1,43 @@
+{
+  "description": "Local simulated TEE / local-signer demo mode cross-language fixture; deterministic Anvil data only",
+  "testOnly": true,
+  "testPrivateKey": "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+  "input": {
+    "user": "0x3000000000000000000000000000000000000003",
+    "vault": "0x1000000000000000000000000000000000000001",
+    "intentVerifier": "0x2000000000000000000000000000000000000002",
+    "chainId": 31337,
+    "nonce": 7,
+    "plainIntent": {
+      "riskLevel": 2,
+      "targetAprBps": 900,
+      "maxDrawdownBps": 400,
+      "rebalanceWindow": 3600,
+      "salt": "0x4444444444444444444444444444444444444444444444444444444444444444"
+    },
+    "ftso": {
+      "price": 100000,
+      "timestamp": 1000
+    }
+  },
+  "result": {
+    "user": "0x3000000000000000000000000000000000000003",
+    "vault": "0x1000000000000000000000000000000000000001",
+    "intentCommitment": "0x9ee2e000b7f1c3d892395840561073332e52d1c84d849d76015d63dfd1ea3502",
+    "upshiftBps": 5000,
+    "firelightBps": 2000,
+    "sparkdexBps": 2500,
+    "idleBps": 500,
+    "nonce": 7,
+    "deadline": 1350,
+    "ftsoPriceTimestamp": 1000,
+    "chainId": 31337,
+    "resultHash": "0xaefe67e84c6256cc4d056dbc4d84b9506c134c74fe1d1e71c900cad9f36a35f3"
+  },
+  "expected": {
+    "commitment": "0x9ee2e000b7f1c3d892395840561073332e52d1c84d849d76015d63dfd1ea3502",
+    "resultHash": "0xaefe67e84c6256cc4d056dbc4d84b9506c134c74fe1d1e71c900cad9f36a35f3",
+    "typedDataDigest": "0xd1f3d3de91a254523765b3a1331d170f728a5031e135ba9be25fcf955b7ad2c9",
+    "signer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+  }
+}

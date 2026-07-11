@@ -1,0 +1,61 @@
+import { createServer as createNodeServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
+import type { Address, Hex } from "viem";
+import { loadConfig } from "./config.js";
+import { createAllocationService, type AllocationService } from "./service.js";
+import type { AllocateInput } from "./types.js";
+
+async function readJson(request: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of request) {
+    const buffer = Buffer.from(chunk);
+    size += buffer.length;
+    if (size > 64 * 1024) throw new Error("request body too large");
+    chunks.push(buffer);
+  }
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
+
+function bigint(value: unknown, name: string): bigint {
+  if ((typeof value !== "string" && typeof value !== "number") || !/^\d+$/.test(String(value))) throw new Error(`${name} must be an unsigned integer`);
+  return BigInt(value);
+}
+
+function normalize(value: unknown): AllocateInput {
+  if (!value || typeof value !== "object") throw new Error("request body must be an object");
+  const input = value as Record<string, any>;
+  if (!input.plainIntent || !input.ftso) throw new Error("plainIntent and ftso are required");
+  return {
+    user: input.user as Address, vault: input.vault as Address, intentVerifier: input.intentVerifier as Address,
+    chainId: bigint(input.chainId, "chainId"), nonce: bigint(input.nonce, "nonce"), intentCommitment: input.intentCommitment as Hex,
+    plainIntent: { ...input.plainIntent, riskLevel: Number(input.plainIntent.riskLevel), targetAprBps: Number(input.plainIntent.targetAprBps), maxDrawdownBps: Number(input.plainIntent.maxDrawdownBps), rebalanceWindow: Number(input.plainIntent.rebalanceWindow) },
+    ftso: { price: bigint(input.ftso.price, "ftso.price"), timestamp: bigint(input.ftso.timestamp, "ftso.timestamp") },
+  };
+}
+
+function send(response: ServerResponse, status: number, body: unknown): void {
+  response.writeHead(status, { "content-type": "application/json" });
+  response.end(JSON.stringify(body, (_, value) => typeof value === "bigint" ? value.toString() : value));
+}
+
+export function createServer(service: AllocationService) {
+  return createNodeServer(async (request, response) => {
+    if (request.method !== "POST" || request.url !== "/allocate") return send(response, 404, { error: "not found" });
+    try {
+      const output = await service(normalize(await readJson(request)));
+      return send(response, 200, { result: output.result, signature: output.signature });
+    } catch (error) {
+      return send(response, 400, { error: error instanceof Error ? error.message : "invalid request" });
+    }
+  });
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  const port = Number(process.env.PORT ?? "8787");
+  if (!Number.isInteger(port) || port < 1 || port > 65_535) throw new Error("PORT must be between 1 and 65535");
+  createServer(createAllocationService(loadConfig())).listen(port, "127.0.0.1", () => {
+    console.info(`Local simulated TEE / local-signer demo mode listening on http://127.0.0.1:${port}`);
+  });
+}

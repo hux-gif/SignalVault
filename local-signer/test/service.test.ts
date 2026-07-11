@@ -1,0 +1,59 @@
+import { describe, expect, it } from "vitest";
+import { privateKeyToAccount } from "viem/accounts";
+import { recoverTypedDataAddress } from "viem";
+import { computeIntentCommitment } from "../src/commitment.js";
+import { createAllocationService } from "../src/service.js";
+import { teeResultDomain, teeResultTypes } from "../src/typedData.js";
+import type { AllocateInput } from "../src/types.js";
+
+const privateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const config = {
+  privateKey, signer: privateKeyToAccount(privateKey).address, chainId: 31337n,
+  vault: "0x1000000000000000000000000000000000000001", verifier: "0x2000000000000000000000000000000000000002",
+  ftsoMaxAgeSeconds: 120n, resultTtlSeconds: 300n, logPlaintextIntent: false,
+} as const;
+const plainIntent = { riskLevel: 2 as const, targetAprBps: 900, maxDrawdownBps: 400, rebalanceWindow: 3600, salt: `0x${"44".repeat(32)}` as const };
+const user = "0x3000000000000000000000000000000000000003" as const;
+const base: AllocateInput = {
+  user, vault: config.vault, intentVerifier: config.verifier,
+  chainId: 31337n, nonce: 7n, intentCommitment: computeIntentCommitment(user, plainIntent, 7n, 31337n), plainIntent,
+  ftso: { price: 100_000n, timestamp: 1_000n },
+};
+
+describe("allocation service", () => {
+  it.each([
+    ["vault", "0x4000000000000000000000000000000000000004"],
+    ["intentVerifier", "0x4000000000000000000000000000000000000004"],
+    ["chainId", 1n],
+  ] as const)("rejects a mismatched %s", async (field, value) => {
+    await expect(createAllocationService(config, () => 1_050n)({ ...base, [field]: value })).rejects.toThrow(field);
+  });
+
+  it("rejects commitment mismatch and invalid input ranges", async () => {
+    const service = createAllocationService(config, () => 1_050n);
+    await expect(service({ ...base, intentCommitment: `0x${"00".repeat(32)}` })).rejects.toThrow("commitment");
+    await expect(service({ ...base, nonce: 0n })).rejects.toThrow("nonce");
+    await expect(service({ ...base, plainIntent: { ...plainIntent, targetAprBps: 65_536 } })).rejects.toThrow("targetAprBps");
+    await expect(service({ ...base, ftso: { ...base.ftso, timestamp: -1n } })).rejects.toThrow("ftso");
+    await expect(service({ ...base, ftso: { ...base.ftso, price: 0n } })).rejects.toThrow("ftso");
+    await expect(service({ ...base, ftso: { ...base.ftso, timestamp: 1_051n } })).rejects.toThrow("ftso");
+  });
+
+  it("signs every flattened Solidity TEEResult field", async () => {
+    const { result, signature } = await createAllocationService(config, () => 1_050n)(base);
+    const domain = teeResultDomain(result.chainId, config.verifier);
+    const recover = (message: typeof result) => recoverTypedDataAddress({ domain, types: teeResultTypes, primaryType: "TEEResult", message, signature });
+    expect(await recover(result)).toBe(config.signer);
+    const mutations: Array<typeof result> = [
+      { ...result, user: "0x4000000000000000000000000000000000000004" },
+      { ...result, vault: "0x4000000000000000000000000000000000000004" },
+      { ...result, intentCommitment: `0x${"55".repeat(32)}` },
+      { ...result, upshiftBps: result.upshiftBps - 1 }, { ...result, firelightBps: result.firelightBps - 1 },
+      { ...result, sparkdexBps: result.sparkdexBps - 1 }, { ...result, idleBps: result.idleBps - 1 },
+      { ...result, nonce: result.nonce + 1n }, { ...result, deadline: result.deadline + 1n },
+      { ...result, ftsoPriceTimestamp: result.ftsoPriceTimestamp + 1n }, { ...result, chainId: result.chainId + 1n },
+      { ...result, resultHash: `0x${"66".repeat(32)}` },
+    ];
+    for (const mutation of mutations) expect(await recover(mutation)).not.toBe(config.signer);
+  });
+});
