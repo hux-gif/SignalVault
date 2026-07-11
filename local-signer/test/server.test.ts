@@ -74,4 +74,11 @@ describe("POST /allocate", () => {
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: "internal server error" });
   });
+
+  it("does not misclassify an internal SyntaxError as malformed request JSON", async () => {
+    const url = await start((async () => { throw new SyntaxError("internal parser secret"); }) as never);
+    const response = await fetch(`${url}/allocate`, { method: "POST", body: JSON.stringify(request) });
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "internal server error" });
+  });
 });

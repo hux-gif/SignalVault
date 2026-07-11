@@ -19,7 +19,12 @@ async function readJson(request: IncomingMessage): Promise<unknown> {
     if (size > 64 * 1024) throw new PayloadTooLargeError("request body too large");
     chunks.push(buffer);
   }
-  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch (error) {
+    if (error instanceof SyntaxError) throw new RequestValidationError("malformed JSON");
+    throw error;
+  }
 }
 
 function bigint(value: unknown, name: string): bigint {
@@ -60,7 +65,7 @@ export function createServer(service: AllocationService) {
       return send(response, 200, { result: output.result, signature: output.signature });
     } catch (error) {
       if (error instanceof PayloadTooLargeError) return send(response, 413, { error: error.message });
-      if (error instanceof RequestValidationError || error instanceof SyntaxError) {
+      if (error instanceof RequestValidationError) {
         return send(response, 400, { error: error instanceof Error ? error.message : "invalid request" });
       }
       return send(response, 500, { error: "internal server error" });

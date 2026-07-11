@@ -33,6 +33,10 @@ describe("allocation service", () => {
 
   it("rejects commitment mismatch and invalid input ranges", async () => {
     const service = createAllocationService(config, () => 1_050n);
+    await expect(service({ ...base, user: "not-an-address" as never })).rejects.toThrow("user");
+    await expect(service({ ...base, vault: "not-an-address" as never })).rejects.toThrow("vault");
+    await expect(service({ ...base, intentVerifier: "not-an-address" as never })).rejects.toThrow("intentVerifier");
+    await expect(service({ ...base, chainId: 0n })).rejects.toThrow("chainId");
     await expect(service({ ...base, intentCommitment: `0x${"00".repeat(32)}` })).rejects.toThrow("commitment");
     await expect(service({ ...base, nonce: 0n })).rejects.toThrow("nonce");
     await expect(service({ ...base, plainIntent: { ...plainIntent, targetAprBps: 65_536 } })).rejects.toThrow("targetAprBps");
