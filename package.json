@@ -4,9 +4,12 @@
   "version": "0.1.0",
   "workspaces": [
     "local-signer",
-    "frontend"
+    "frontend",
+    "integration"
   ],
   "scripts": {
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "upshift:smoke:coston2": "npm run smoke:coston2 --workspace integration"
   }
 }

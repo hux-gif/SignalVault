@@ -9,4 +9,7 @@ node_modules/
 /.env
 /.env.*
 !/local-signer/.env.example
+/integration/.env
+/integration/.env.*
+!/integration/.env.example
 *.zip

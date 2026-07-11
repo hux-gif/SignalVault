@@ -1,0 +1,162 @@
+{
+  "status": "success",
+  "network": "coston2",
+  "chainId": 114,
+  "rpc": "https://coston2-api.flare.network/ext/C/rpc",
+  "officialSources": {
+    "fxrp": "https://dev.flare.network/fassets/reference",
+    "upshiftDeposit": "https://dev.flare.network/fxrp/upshift/deposit",
+    "upshiftInstantRedeem": "https://dev.flare.network/fxrp/upshift/instant-redeem",
+    "abi": "https://github.com/flare-foundation/flare-hardhat-starter/blob/1ce4e8cafb9159a8944a2c85dc2bd3614e4ab7bb/contracts/upshift/ITokenizedVault.sol"
+  },
+  "verifiedAt": "2026-07-11T05:57:39.075Z",
+  "fxrp": {
+    "address": "0x0b6A3645c240605887a5532109323A3E12273dc7",
+    "symbol": "FTestXRP",
+    "decimals": 6,
+    "bytecodeBytes": 177
+  },
+  "upshiftVault": {
+    "address": "0x24c1a47cD5e8473b64EAB2a94515a196E10C7C81",
+    "asset": "0x0b6A3645c240605887a5532109323A3E12273dc7",
+    "lpToken": "0xe084F7328DDaB082a139b880782dCC424d20a1DB",
+    "shareDecimals": 6,
+    "bytecodeBytes": 1106,
+    "lpTokenBytecodeBytes": 2550,
+    "interfaceStyle": "ERC-4626 style; protocol-native ITokenizedVault",
+    "standardVaultAccountingRequired": false,
+    "directReferenceAssetBalanceNotNav": "25007512",
+    "lpTokenTotalSupply": "24920176",
+    "withdrawalsPaused": false,
+    "maxWithdrawalAmount": "10000000000",
+    "reportedInstantRedemptionFee": "50",
+    "instantRedeemSignature": "instantRedeem(uint256 shares,address receiverAddr)",
+    "semantics": "Burns LP shares and transfers net reference assets immediately; previewRedemption(shares,true) returns gross and after-fee assets."
+  },
+  "amountSelection": {
+    "reason": "Smallest base-unit candidate with nonzero deposit and instant-redemption previews below maxWithdrawalAmount",
+    "configuredMaximum": "10000",
+    "candidates": [
+      {
+        "amount": "1",
+        "previewShares": "0",
+        "redemptionGross": "0",
+        "redemptionNet": "0"
+      },
+      {
+        "amount": "10",
+        "previewShares": "9",
+        "redemptionGross": "9",
+        "redemptionNet": "9"
+      },
+      {
+        "amount": "100",
+        "previewShares": "99",
+        "redemptionGross": "99",
+        "redemptionNet": "99"
+      },
+      {
+        "amount": "1000",
+        "previewShares": "996",
+        "redemptionGross": "999",
+        "redemptionNet": "995"
+      },
+      {
+        "amount": "10000",
+        "previewShares": "9965",
+        "redemptionGross": "9999",
+        "redemptionNet": "9950"
+      }
+    ],
+    "selected": {
+      "amount": "10",
+      "previewShares": "9",
+      "redemptionGross": "9",
+      "redemptionNet": "9"
+    }
+  },
+  "before": {
+    "walletAssets": "10000000",
+    "walletShares": "0"
+  },
+  "depositPreview": {
+    "shares": "9",
+    "amountInReferenceTokens": "10"
+  },
+  "redemptionPreflight": {
+    "withdrawalsPaused": false,
+    "maxWithdrawalAmount": "10000000000",
+    "grossAssets": "9",
+    "netAssets": "9"
+  },
+  "allowancesBefore": {
+    "fxrp": "0",
+    "lpToken": "0"
+  },
+  "approval": {
+    "amount": "10",
+    "transactionHash": "0x5f99d461119129cd053c704d382822e6ff819bdfdfa4f6b92d7995cd907b4fda",
+    "blockNumber": "32727419",
+    "confirmed": true,
+    "verifiedAllowance": "10"
+  },
+  "deposit": {
+    "amount": "10",
+    "transactionHash": "0x7dbf8e2b1aa349d97111aa74e7b7c7227f09d2d1084f89373b299c80f3f290b3",
+    "blockNumber": "32727420",
+    "confirmed": true,
+    "sharesReceived": "9",
+    "walletAssetsAfter": "9999990",
+    "walletSharesAfter": "9",
+    "sharePreviewDeviation": "0"
+  },
+  "lpApproval": {
+    "required": false,
+    "reason": "instantRedeem simulation succeeded with current LP allowance"
+  },
+  "redemption": {
+    "method": "instantRedeem(uint256,address)",
+    "sharesRedeemed": "9",
+    "grossPreviewedAssets": "9",
+    "netPreviewedAssets": "9",
+    "configuredFee": "50",
+    "transactionHash": "0x1823e24e5dffa95eda9542a8ca103ad828e800e13d92122c658302eb0dcb7a40",
+    "blockNumber": "32727423",
+    "confirmed": true,
+    "actualAssetsReturned": "9",
+    "walletAssetsAfter": "9999999",
+    "walletSharesAfter": "0",
+    "redemptionPreviewDeviation": "0"
+  },
+  "economics": {
+    "depositAmount": "10",
+    "previewedShares": "9",
+    "actualSharesReceived": "9",
+    "sharePreviewDeviation": "0",
+    "previewAssetsBeforeFee": "9",
+    "previewAssetsAfterFee": "9",
+    "actualAssetsReturned": "9",
+    "redemptionPreviewDeviation": "0",
+    "depositToRedeemAbsoluteLoss": "1",
+    "roundTripLossBps": "1000",
+    "reportedInstantRedemptionFee": "50",
+    "note": "Round-trip loss is not labeled as the instant redemption fee; it may include deposit pricing, explicit fee, and rounding."
+  },
+  "explorerUrls": {
+    "deposit": "https://coston2-explorer.flare.network/tx/0x7dbf8e2b1aa349d97111aa74e7b7c7227f09d2d1084f89373b299c80f3f290b3",
+    "redemption": "https://coston2-explorer.flare.network/tx/0x1823e24e5dffa95eda9542a8ca103ad828e800e13d92122c658302eb0dcb7a40"
+  },
+  "allowanceCleanup": {
+    "confirmed": true,
+    "fxrp": {
+      "touched": true,
+      "before": "0",
+      "after": "0"
+    },
+    "lpToken": {
+      "touched": false,
+      "before": "0",
+      "after": "0"
+    }
+  }
+}
