@@ -7,6 +7,7 @@ import { teeResultDomain, teeResultTypes } from "../src/typedData.js";
 import type { AllocateInput } from "../src/types.js";
 
 const privateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+const UINT256_MAX = (1n << 256n) - 1n;
 const config = {
   privateKey, signer: privateKeyToAccount(privateKey).address, chainId: 31337n,
   vault: "0x1000000000000000000000000000000000000001", verifier: "0x2000000000000000000000000000000000000002",
@@ -24,6 +25,7 @@ describe("allocation service", () => {
   it.each([
     ["vault", "0x4000000000000000000000000000000000000004"],
     ["intentVerifier", "0x4000000000000000000000000000000000000004"],
+    ["intentVerifier", "0x0000000000000000000000000000000000000000"],
     ["chainId", 1n],
   ] as const)("rejects a mismatched %s", async (field, value) => {
     await expect(createAllocationService(config, () => 1_050n)({ ...base, [field]: value })).rejects.toThrow(field);
@@ -34,9 +36,26 @@ describe("allocation service", () => {
     await expect(service({ ...base, intentCommitment: `0x${"00".repeat(32)}` })).rejects.toThrow("commitment");
     await expect(service({ ...base, nonce: 0n })).rejects.toThrow("nonce");
     await expect(service({ ...base, plainIntent: { ...plainIntent, targetAprBps: 65_536 } })).rejects.toThrow("targetAprBps");
+    await expect(service({ ...base, plainIntent: { ...plainIntent, riskLevel: 3 as never } })).rejects.toThrow("riskLevel");
+    await expect(service({ ...base, plainIntent: { ...plainIntent, targetAprBps: -1 } })).rejects.toThrow("targetAprBps");
+    await expect(service({ ...base, plainIntent: { ...plainIntent, maxDrawdownBps: 65_536 } })).rejects.toThrow("maxDrawdownBps");
+    await expect(service({ ...base, plainIntent: { ...plainIntent, rebalanceWindow: 4_294_967_296 } })).rejects.toThrow("rebalanceWindow");
+    await expect(service({ ...base, plainIntent: { ...plainIntent, salt: "0x12" } })).rejects.toThrow("salt");
+    await expect(service({ ...base, intentCommitment: "0x12" })).rejects.toThrow("intentCommitment");
     await expect(service({ ...base, ftso: { ...base.ftso, timestamp: -1n } })).rejects.toThrow("ftso");
     await expect(service({ ...base, ftso: { ...base.ftso, price: 0n } })).rejects.toThrow("ftso");
     await expect(service({ ...base, ftso: { ...base.ftso, timestamp: 1_051n } })).rejects.toThrow("ftso");
+    await expect(service({ ...base, chainId: UINT256_MAX + 1n })).rejects.toThrow("chainId");
+    await expect(service({ ...base, nonce: UINT256_MAX + 1n })).rejects.toThrow("nonce");
+    await expect(service({ ...base, ftso: { ...base.ftso, price: UINT256_MAX + 1n } })).rejects.toThrow("ftso");
+    await expect(service({ ...base, ftso: { ...base.ftso, timestamp: UINT256_MAX + 1n } })).rejects.toThrow("ftso");
+  });
+
+  it("rejects a deadline that would overflow uint256", async () => {
+    const overflowConfig = { ...config, resultTtlSeconds: 10n };
+    await expect(createAllocationService(overflowConfig, () => UINT256_MAX - 5n)({
+      ...base, ftso: { ...base.ftso, timestamp: UINT256_MAX - 6n },
+    })).rejects.toThrow("deadline");
   });
 
   it("signs every flattened Solidity TEEResult field", async () => {

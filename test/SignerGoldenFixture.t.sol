@@ -44,6 +44,10 @@ contract SignerGoldenFixtureTest is Test {
         assertTrue(json.readBool(".testOnly"));
         Golden memory fixture = _readFixture(json);
         bytes32 commitment = _commitment(fixture);
+        assertEq(json.readAddress(".result.user"), fixture.user);
+        assertEq(json.readAddress(".result.vault"), fixture.vault);
+        assertEq(json.readBytes32(".result.intentCommitment"), commitment);
+        assertEq(json.readUint(".result.chainId"), fixture.chainId);
         assertEq(commitment, json.readBytes32(".expected.commitment"));
         bytes32 resultHash = _resultHash(fixture, commitment);
         assertEq(resultHash, json.readBytes32(".expected.resultHash"));

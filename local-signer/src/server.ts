@@ -3,8 +3,12 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import type { Address, Hex } from "viem";
 import { loadConfig } from "./config.js";
-import { createAllocationService, type AllocationService } from "./service.js";
+import { createAllocationService, RequestValidationError, type AllocationService } from "./service.js";
 import type { AllocateInput } from "./types.js";
+
+const UINT256_MAX = (1n << 256n) - 1n;
+
+class PayloadTooLargeError extends RequestValidationError {}
 
 async function readJson(request: IncomingMessage): Promise<unknown> {
   const chunks: Buffer[] = [];
@@ -12,21 +16,28 @@ async function readJson(request: IncomingMessage): Promise<unknown> {
   for await (const chunk of request) {
     const buffer = Buffer.from(chunk);
     size += buffer.length;
-    if (size > 64 * 1024) throw new Error("request body too large");
+    if (size > 64 * 1024) throw new PayloadTooLargeError("request body too large");
     chunks.push(buffer);
   }
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
 function bigint(value: unknown, name: string): bigint {
-  if ((typeof value !== "string" && typeof value !== "number") || !/^\d+$/.test(String(value))) throw new Error(`${name} must be an unsigned integer`);
-  return BigInt(value);
+  if (typeof value === "number" && (!Number.isSafeInteger(value) || value < 0)) {
+    throw new RequestValidationError(`${name} JSON numbers must be safe unsigned integers; use a decimal string for larger values`);
+  }
+  if ((typeof value !== "string" && typeof value !== "number") || !/^\d+$/.test(String(value))) {
+    throw new RequestValidationError(`${name} must be an unsigned integer`);
+  }
+  const parsed = BigInt(value);
+  if (parsed > UINT256_MAX) throw new RequestValidationError(`${name} exceeds uint256`);
+  return parsed;
 }
 
 function normalize(value: unknown): AllocateInput {
-  if (!value || typeof value !== "object") throw new Error("request body must be an object");
+  if (!value || typeof value !== "object") throw new RequestValidationError("request body must be an object");
   const input = value as Record<string, any>;
-  if (!input.plainIntent || !input.ftso) throw new Error("plainIntent and ftso are required");
+  if (!input.plainIntent || !input.ftso) throw new RequestValidationError("plainIntent and ftso are required");
   return {
     user: input.user as Address, vault: input.vault as Address, intentVerifier: input.intentVerifier as Address,
     chainId: bigint(input.chainId, "chainId"), nonce: bigint(input.nonce, "nonce"), intentCommitment: input.intentCommitment as Hex,
@@ -35,19 +46,24 @@ function normalize(value: unknown): AllocateInput {
   };
 }
 
-function send(response: ServerResponse, status: number, body: unknown): void {
-  response.writeHead(status, { "content-type": "application/json" });
+function send(response: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
+  response.writeHead(status, { "content-type": "application/json", ...headers });
   response.end(JSON.stringify(body, (_, value) => typeof value === "bigint" ? value.toString() : value));
 }
 
 export function createServer(service: AllocationService) {
   return createNodeServer(async (request, response) => {
-    if (request.method !== "POST" || request.url !== "/allocate") return send(response, 404, { error: "not found" });
+    if (request.url !== "/allocate") return send(response, 404, { error: "not found" });
+    if (request.method !== "POST") return send(response, 405, { error: "method not allowed" }, { Allow: "POST" });
     try {
       const output = await service(normalize(await readJson(request)));
       return send(response, 200, { result: output.result, signature: output.signature });
     } catch (error) {
-      return send(response, 400, { error: error instanceof Error ? error.message : "invalid request" });
+      if (error instanceof PayloadTooLargeError) return send(response, 413, { error: error.message });
+      if (error instanceof RequestValidationError || error instanceof SyntaxError) {
+        return send(response, 400, { error: error instanceof Error ? error.message : "invalid request" });
+      }
+      return send(response, 500, { error: "internal server error" });
     }
   });
 }

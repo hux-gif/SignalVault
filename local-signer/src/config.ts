@@ -1,6 +1,9 @@
 import { getAddress, isAddress, type Address, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
+const UINT256_MAX = (1n << 256n) - 1n;
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
 export interface SignerConfig {
   privateKey: Hex;
   signer: Address;
@@ -20,11 +23,13 @@ function required(env: Record<string, string | undefined>, key: string): string 
 
 function positiveInteger(value: string, key: string): bigint {
   if (!/^[1-9]\d*$/.test(value)) throw new Error(`${key} must be a positive integer`);
-  return BigInt(value);
+  const parsed = BigInt(value);
+  if (parsed > UINT256_MAX) throw new Error(`${key} must fit uint256`);
+  return parsed;
 }
 
 function address(value: string, key: string): Address {
-  if (!isAddress(value)) throw new Error(`${key} must be a valid address`);
+  if (!isAddress(value) || value.toLowerCase() === ZERO_ADDRESS) throw new Error(`${key} must be a valid non-zero address`);
   return getAddress(value);
 }
 
@@ -36,7 +41,11 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const privateKey = rawKey as Hex;
   const maxAge = env.FTSO_MAX_AGE_SECONDS ?? "120";
   const ttl = env.RESULT_TTL_SECONDS ?? "300";
-  const logPlaintextIntent = env.LOG_PLAINTEXT_INTENT === "true";
+  const rawLogIntent = env.LOG_PLAINTEXT_INTENT;
+  if (rawLogIntent !== undefined && rawLogIntent !== "true" && rawLogIntent !== "false") {
+    throw new Error("LOG_PLAINTEXT_INTENT must be exactly true or false");
+  }
+  const logPlaintextIntent = rawLogIntent === "true";
   if (logPlaintextIntent && env.NODE_ENV !== "development") {
     throw new Error("LOG_PLAINTEXT_INTENT may only be enabled in development");
   }
