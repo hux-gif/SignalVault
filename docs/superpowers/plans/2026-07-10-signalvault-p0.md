@@ -170,18 +170,18 @@ Expected: all P0 happy-path and reject-path tests PASS.
 
 Run: `git add src test && git commit -m "feat: execute replay-safe signed allocations"`
 
-### Task 5: Build local signer with deterministic allocation policy
+### Task 5: Build local signer with deterministic allocation policy and cross-language fixtures
 
 **Files:**
-- Create: `local-signer/package.json`, `local-signer/src/allocation.ts`, `local-signer/src/commitment.ts`, `local-signer/src/server.ts`, `local-signer/test/allocation.test.ts`, `local-signer/.env.example`
+- Create: `local-signer/package.json`, `local-signer/tsconfig.json`, `local-signer/src/types.ts`, `local-signer/src/config.ts`, `local-signer/src/allocation.ts`, `local-signer/src/commitment.ts`, `local-signer/src/resultHash.ts`, `local-signer/src/typedData.ts`, `local-signer/src/service.ts`, `local-signer/src/server.ts`, `local-signer/test/*.test.ts`, `local-signer/.env.example`, `fixtures/signer-golden.json`, `test/SignerGoldenFixture.t.sol`
 
 **Interfaces:**
-- Consumes `{ user, vault, plainIntent, nonce, intentCommitment }`.
+- Consumes `{ user, vault, intentVerifier, chainId, nonce, intentCommitment, plainIntent, ftso }`.
 - Produces `{ result: TEEResult, signature: Hex }` from `POST /allocate`.
 
 - [ ] **Step 1: Write failing pure-function tests**
 
-Verify Safe yields `4000/2000/0/4000`, Balanced `5000/2000/1000/2000`, Aggressive `5000/2000/2500/500`; stale FTSO and restrictive drawdown shift BPS only from SparkDEX to Idle; all outputs total 10,000; commitment uses `keccak256(abi.encode(domain,user,plainIntentHash,salt,nonce,chainId))` semantics.
+Verify Safe yields `4000/2000/0/4000`, Balanced `5000/2000/1000/2000`, Aggressive `5000/2000/2500/500`; stale FTSO moves all SparkDEX BPS to Idle; drawdown at or below 300 caps SparkDEX at 500 and at or below 100 moves it to zero; all outputs total 10,000. Commitment uses `keccak256(abi.encode(domain,user,plainIntentHash,salt,nonce,chainId))` semantics and is recomputed server-side.
 
 - [ ] **Step 2: Run tests red**
 
@@ -191,7 +191,7 @@ Expected: FAIL because the allocation and commitment modules do not exist.
 
 - [ ] **Step 3: Implement the smallest deterministic signer**
 
-Use viem only. Read `SIGNER_PRIVATE_KEY`, `CHAIN_ID`, and `VAULT_ADDRESS` from environment; reject mismatched vault/chain and commitment; use the exact EIP-712 type definition from `IntentVerifier`; return no plaintext intent in the response beyond allocation inputs necessary for local demo logs.
+Use viem and strict environment validation. Read `SIGNER_PRIVATE_KEY`, `CHAIN_ID`, `VAULT_ADDRESS`, and `INTENT_VERIFIER_ADDRESS`; reject mismatched vault, chain, verifier, or commitment. Canonical `resultHash` must match `SignalVault.computeResultHash`; the flattened EIP-712 type and domain must match `IntentVerifier`, with `intentVerifier` as `verifyingContract`. Never return or log the private key; plaintext intent logging is development-only and disabled by default.
 
 - [ ] **Step 4: Verify local signer**
 
@@ -199,11 +199,52 @@ Run: `npm test --workspace local-signer`
 
 Expected: all tests PASS.
 
+Run: `npm run typecheck --workspace local-signer`
+
+Expected: strict TypeScript checking PASS.
+
+The shared golden fixture must contain fixed input plus expected commitment, canonical result hash, typed-data digest, and recovered signer. Vitest and Foundry must both verify it.
+
 - [ ] **Step 5: Commit local simulated TEE mode**
 
 Run: `git add local-signer && git commit -m "feat: add deterministic local allocation signer"`
 
-### Task 6: Build the truthful demo UI and supporting documentation
+### Task 6: Build local and Coston2 deployment scripts plus Anvil end-to-end flow
+
+**Files:**
+- Create: `script/DeploySignalVault.s.sol`, `script/LocalEndToEnd.s.sol`, `deployments/anvil.json`, `deployments/coston2.json`, `test/DeploymentFlow.t.sol`
+
+**Interfaces:**
+- Consumes the actual constructors and one-time `configureAdapters` / `bindVault` sequence.
+- Produces a validated deployed contract set and JSON output containing chain ID, network, FXRP, verifier, router, vault, adapters, transaction metadata, and deployment timestamp.
+
+- [ ] **Step 1: Write failing deployment-flow tests**
+
+Cover constructor/configuration order, unique adapters, router asset equality, router-vault binding, trusted signer, owner, first deposit, signed first allocation, second rebalance without double deposit, partial withdrawal, and full withdrawal.
+
+- [ ] **Step 2: Run the deployment-flow tests red**
+
+Run: `forge test --match-path test/DeploymentFlow.t.sol -vvv`
+
+Expected: FAIL because the deployment helper and end-to-end script do not exist.
+
+- [ ] **Step 3: Implement scripts from environment inputs**
+
+Require `FXRP_ADDRESS`, `TRUSTED_SIGNER`, and `VAULT_OWNER`; local mode may deploy `MockERC20`. Never hardcode or infer a Coston2 FXRP address. Deploy router, adapters, verifier, and personal vault in the only valid configuration/binding order, then assert router asset/vault and vault owner/verifier relationships.
+
+- [ ] **Step 4: Preserve truthful deployment output**
+
+`deployments/coston2.json` starts with null addresses and remains null until a successful broadcast receipt is available. A simulation must not populate live addresses or claim deployment. `deployments/anvil.json` may contain local addresses generated by the successful local run.
+
+- [ ] **Step 5: Run local Anvil end-to-end verification**
+
+The flow deploys all contracts, mints mock FXRP, deposits, submits ciphertext/commitment, consumes a local-signer allocation, executes it, performs a second intent/rebalance, partially withdraws, then fully withdraws and confirms bounded dust recovery.
+
+- [ ] **Step 6: Commit deployment and local flow**
+
+Run: `git add script test/DeploymentFlow.t.sol deployments fixtures && git commit -m "feat: add deployment and local e2e flow"`
+
+### Task 7: Build the truthful demo UI and supporting documentation
 
 **Files:**
 - Create: `frontend/package.json`, `frontend/app/page.tsx`, `frontend/lib/intent.ts`, `frontend/lib/contracts.ts`, `frontend/test/intent.test.ts`, `README.md`, `docs/demo-script.md`, `deployments/coston2.json`

@@ -4,6 +4,7 @@
 /node_modules/
 /tools/
 /lib/
+/.superpowers/
 /.next/
 /.env
 /.env.*
