@@ -12,8 +12,6 @@ contract IntentVerifierV2 is EIP712, Ownable {
     bytes32 public constant TEERESULT_V2_TYPEHASH = keccak256(
         "TEEResultV2(address user,address vault,bytes32 intentCommitment,bytes32 capabilityProfile,bytes32 routerConfigHash,uint16 upshiftBps,uint16 firelightBps,uint16 sparkdexBps,uint16 idleBps,uint256 nonce,uint256 deadline,uint256 ftsoPriceTimestamp,uint256 chainId,uint256 minimumPostNAV,uint16 maximumRebalanceLossBps,uint16 maximumPreviewDeviationBps,uint16 allocationToleranceBps,bytes32 resultHash)"
     );
-    bytes32 private constant COSTON2_PROFILE = keccak256("SIGNALVAULT_COSTON2_UPSHIFT_IDLE_V1");
-
     address public trustedSigner;
 
     event TrustedSignerUpdated(address indexed previousSigner, address indexed newSigner);
@@ -72,7 +70,7 @@ contract IntentVerifierV2 is EIP712, Ownable {
         if (
             result.user == address(0) || result.vault == address(0)
                 || result.chainId != block.chainid || result.deadline < block.timestamp
-                || result.capabilityProfile != COSTON2_PROFILE
+                || result.capabilityProfile != SignalVaultHashesV2.COSTON2_PROFILE
                 || result.routerConfigHash == bytes32(0)
                 || result.resultHash != SignalVaultHashesV2.computeResultHash(result)
                 || result.allocation.firelightBps != 0 || result.allocation.sparkdexBps != 0

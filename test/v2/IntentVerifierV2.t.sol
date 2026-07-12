@@ -81,6 +81,18 @@ contract IntentVerifierV2Test is Test {
         assertFalse(verifier.verifyTEEResult(canonicalResult(), v1Signature));
     }
 
+    function testP0VerifierRejectsActualV2SignatureBytes() external {
+        IntentVerifier v1Verifier = new IntentVerifier(vm.addr(TRUSTED_SIGNER_PK));
+        TEEResult memory v1Result = fixtureV1Result();
+        bytes memory validV1Signature =
+            signDigest(v1Verifier.hashTypedData(v1Result), TRUSTED_SIGNER_PK);
+        assertTrue(v1Verifier.verifyTEEResult(v1Result, validV1Signature));
+
+        TEEResultV2 memory v2Result = canonicalResult();
+        bytes memory v2Signature = signV2(v2Result);
+        assertFalse(v1Verifier.verifyTEEResult(v1Result, v2Signature));
+    }
+
     function testRejectsWrongChain() external view {
         TEEResultV2 memory result = canonicalResult();
         bytes memory signature = signV2(result);

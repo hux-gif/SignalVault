@@ -14,7 +14,9 @@ function invalid(message: string): never {
 export function parseUint16(value: unknown): number {
   let parsed: number;
   if (typeof value === "number") {
-    if (!Number.isSafeInteger(value)) invalid("value must be an exact uint16 integer");
+    if (!Number.isSafeInteger(value) || Object.is(value, -0)) {
+      invalid("value must be an exact uint16 integer");
+    }
     parsed = value;
   } else if (typeof value === "string" && CANONICAL_DECIMAL.test(value)) {
     const numeric = BigInt(value);
@@ -78,6 +80,9 @@ export function parseAllocateRequestV2(
   const intentCommitment = bytes32(input.intentCommitment, "intentCommitment");
   const capabilityProfile = bytes32(input.capabilityProfile, "capabilityProfile");
   const routerConfigHash = bytes32(input.routerConfigHash, "routerConfigHash");
+  if (/^0x0{64}$/i.test(routerConfigHash)) {
+    invalid("routerConfigHash must be non-zero bytes32");
+  }
   const chainId = parseUint256(input.chainId);
   const upshiftBps = bps(input.upshiftBps, "upshiftBps");
   const firelightBps = bps(input.firelightBps, "firelightBps");

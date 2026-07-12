@@ -17,6 +17,27 @@ import {
 contract SignerGoldenFixtureV2Test is Test {
     using stdJson for string;
 
+    enum MutationField {
+        User,
+        Vault,
+        IntentCommitment,
+        CapabilityProfile,
+        RouterConfigHash,
+        UpshiftBps,
+        FirelightBps,
+        SparkdexBps,
+        IdleBps,
+        Nonce,
+        Deadline,
+        FtsoPriceTimestamp,
+        ChainId,
+        MinimumPostNAV,
+        MaximumRebalanceLossBps,
+        MaximumPreviewDeviationBps,
+        AllocationToleranceBps,
+        ResultHash
+    }
+
     bytes32 private constant RESULT_V2_DOMAIN = keccak256("SIGNALVAULT_TEE_RESULT_V2");
     bytes32 private constant RISK_CONFIG_V1_DOMAIN = keccak256("SIGNALVAULT_ROUTER_RISK_CONFIG_V1");
     bytes32 private constant ROUTER_CONFIG_V1_DOMAIN = keccak256("SIGNALVAULT_ROUTER_CONFIG_V1");
@@ -83,75 +104,75 @@ contract SignerGoldenFixtureV2Test is Test {
     }
 
     function testMutation_user() external view {
-        _assertMutationRejected(0);
+        _assertMutationRejected(MutationField.User);
     }
 
     function testMutation_vault() external view {
-        _assertMutationRejected(1);
+        _assertMutationRejected(MutationField.Vault);
     }
 
     function testMutation_intentCommitment() external view {
-        _assertMutationRejected(2);
+        _assertMutationRejected(MutationField.IntentCommitment);
     }
 
     function testMutation_capabilityProfile() external view {
-        _assertMutationRejected(3);
+        _assertMutationRejected(MutationField.CapabilityProfile);
     }
 
     function testMutation_routerConfigHash() external view {
-        _assertMutationRejected(4);
+        _assertMutationRejected(MutationField.RouterConfigHash);
     }
 
     function testMutation_upshiftBps() external view {
-        _assertMutationRejected(5);
+        _assertMutationRejected(MutationField.UpshiftBps);
     }
 
     function testMutation_firelightBps() external view {
-        _assertMutationRejected(6);
+        _assertMutationRejected(MutationField.FirelightBps);
     }
 
     function testMutation_sparkdexBps() external view {
-        _assertMutationRejected(7);
+        _assertMutationRejected(MutationField.SparkdexBps);
     }
 
     function testMutation_idleBps() external view {
-        _assertMutationRejected(8);
+        _assertMutationRejected(MutationField.IdleBps);
     }
 
     function testMutation_nonce() external view {
-        _assertMutationRejected(9);
+        _assertMutationRejected(MutationField.Nonce);
     }
 
     function testMutation_deadline() external view {
-        _assertMutationRejected(10);
+        _assertMutationRejected(MutationField.Deadline);
     }
 
     function testMutation_ftsoPriceTimestamp() external view {
-        _assertMutationRejected(11);
+        _assertMutationRejected(MutationField.FtsoPriceTimestamp);
     }
 
     function testMutation_chainId() external view {
-        _assertMutationRejected(12);
+        _assertMutationRejected(MutationField.ChainId);
     }
 
     function testMutation_minimumPostNAV() external view {
-        _assertMutationRejected(13);
+        _assertMutationRejected(MutationField.MinimumPostNAV);
     }
 
     function testMutation_maximumRebalanceLossBps() external view {
-        _assertMutationRejected(14);
+        _assertMutationRejected(MutationField.MaximumRebalanceLossBps);
     }
 
     function testMutation_maximumPreviewDeviationBps() external view {
-        _assertMutationRejected(15);
+        _assertMutationRejected(MutationField.MaximumPreviewDeviationBps);
     }
 
     function testMutation_allocationToleranceBps() external view {
-        _assertMutationRejected(16);
+        _assertMutationRejected(MutationField.AllocationToleranceBps);
     }
 
     function testMutation_resultHash() external view {
-        _assertMutationRejected(17);
+        _assertMutationRejected(MutationField.ResultHash);
     }
 
     function testDomainAndV1Separation() external view {
@@ -179,7 +200,7 @@ contract SignerGoldenFixtureV2Test is Test {
         );
     }
 
-    function _assertMutationRejected(uint256 field) private view {
+    function _assertMutationRejected(MutationField field) private view {
         string memory json = _json();
         TEEResultV2 memory result = _result(json);
         bytes32 originalResultHash = result.resultHash;
@@ -193,7 +214,7 @@ contract SignerGoldenFixtureV2Test is Test {
         assertNotEq(recovered, json.readAddress(".expected.signer"));
 
         bytes32 recomputedCanonicalHash = SignalVaultHashesV2.computeResultHash(result);
-        if (field == 17) {
+        if (field == MutationField.ResultHash) {
             assertEq(recomputedCanonicalHash, originalResultHash);
             assertNotEq(recomputedCanonicalHash, result.resultHash);
         } else {
@@ -203,25 +224,46 @@ contract SignerGoldenFixtureV2Test is Test {
         assertFalse(verifier.verifyTEEResult(result, signature));
     }
 
-    function _mutate(TEEResultV2 memory result, uint256 field) private pure {
-        if (field == 0) result.user = address(0x9999999999999999999999999999999999999999);
-        else if (field == 1) result.vault = address(0x9999999999999999999999999999999999999999);
-        else if (field == 2) result.intentCommitment = bytes32(uint256(999));
-        else if (field == 3) result.capabilityProfile = bytes32(uint256(999));
-        else if (field == 4) result.routerConfigHash = bytes32(uint256(999));
-        else if (field == 5) result.allocation.upshiftBps++;
-        else if (field == 6) result.allocation.firelightBps++;
-        else if (field == 7) result.allocation.sparkdexBps++;
-        else if (field == 8) result.allocation.idleBps++;
-        else if (field == 9) result.nonce++;
-        else if (field == 10) result.deadline++;
-        else if (field == 11) result.ftsoPriceTimestamp++;
-        else if (field == 12) result.chainId++;
-        else if (field == 13) result.limits.minimumPostNAV++;
-        else if (field == 14) result.limits.maximumRebalanceLossBps++;
-        else if (field == 15) result.limits.maximumPreviewDeviationBps++;
-        else if (field == 16) result.limits.allocationToleranceBps++;
-        else result.resultHash = bytes32(uint256(999));
+    function _mutate(TEEResultV2 memory result, MutationField field) private pure {
+        if (field == MutationField.User) {
+            result.user = address(0x9999999999999999999999999999999999999999);
+        } else if (field == MutationField.Vault) {
+            result.vault = address(0x9999999999999999999999999999999999999999);
+        } else if (field == MutationField.IntentCommitment) {
+            result.intentCommitment = bytes32(uint256(999));
+        } else if (field == MutationField.CapabilityProfile) {
+            result.capabilityProfile = bytes32(uint256(999));
+        } else if (field == MutationField.RouterConfigHash) {
+            result.routerConfigHash = bytes32(uint256(999));
+        } else if (field == MutationField.UpshiftBps) {
+            result.allocation.upshiftBps++;
+        } else if (field == MutationField.FirelightBps) {
+            result.allocation.firelightBps++;
+        } else if (field == MutationField.SparkdexBps) {
+            result.allocation.sparkdexBps++;
+        } else if (field == MutationField.IdleBps) {
+            result.allocation.idleBps++;
+        } else if (field == MutationField.Nonce) {
+            result.nonce++;
+        } else if (field == MutationField.Deadline) {
+            result.deadline++;
+        } else if (field == MutationField.FtsoPriceTimestamp) {
+            result.ftsoPriceTimestamp++;
+        } else if (field == MutationField.ChainId) {
+            result.chainId++;
+        } else if (field == MutationField.MinimumPostNAV) {
+            result.limits.minimumPostNAV++;
+        } else if (field == MutationField.MaximumRebalanceLossBps) {
+            result.limits.maximumRebalanceLossBps++;
+        } else if (field == MutationField.MaximumPreviewDeviationBps) {
+            result.limits.maximumPreviewDeviationBps++;
+        } else if (field == MutationField.AllocationToleranceBps) {
+            result.limits.allocationToleranceBps++;
+        } else if (field == MutationField.ResultHash) {
+            result.resultHash = bytes32(uint256(999));
+        } else {
+            revert("unsupported mutation field");
+        }
     }
 
     function _json() private view returns (string memory) {

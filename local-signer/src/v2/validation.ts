@@ -1,8 +1,11 @@
-import type { Hex } from "viem";
-import type { AllocationV2 } from "./types.js";
+import { isAddress, isHex, type Address, type Hex } from "viem";
+import { computeResultHashV2 } from "./resultHash.js";
+import type { AllocationV2, TEEResultV2 } from "./types.js";
 
 const COSTON2_CAPABILITY_PROFILE: Hex =
   "0x7498d31e561984b05a8781d83e877e14abc931043446e1f275b8ee0a7db7f208";
+const ZERO_ADDRESS: Address = "0x0000000000000000000000000000000000000000";
+const ZERO_BYTES32: Hex = `0x${"00".repeat(32)}`;
 
 export interface Coston2ResultFieldsV2 extends AllocationV2 {
   capabilityProfile: Hex;
@@ -32,5 +35,35 @@ export function validateCoston2ResultV2(value: Coston2ResultFieldsV2): void {
   }
   if (value.upshiftBps + value.idleBps !== 10_000) {
     throw new Error("Coston2 allocation requires upshiftBps plus idleBps to equal 10,000");
+  }
+}
+
+function validateNonZeroAddress(value: Address, field: string): void {
+  if (!isAddress(value) || value.toLowerCase() === ZERO_ADDRESS) {
+    throw new Error(`${field} must be a valid non-zero address`);
+  }
+}
+
+function validateNonZeroBytes32(value: Hex, field: string): void {
+  if (
+    typeof value !== "string"
+    || !isHex(value, { strict: true })
+    || value.length !== 66
+    || value.toLowerCase() === ZERO_BYTES32
+  ) {
+    throw new Error(`${field} must be exact non-zero bytes32`);
+  }
+}
+
+/** Validates every invariant required before a V2 result is safe to sign. */
+export function validateSignableTEEResultV2(value: TEEResultV2): void {
+  validateCoston2ResultV2(value);
+  validateNonZeroAddress(value.user, "user");
+  validateNonZeroAddress(value.vault, "vault");
+  validateNonZeroBytes32(value.routerConfigHash, "routerConfigHash");
+
+  const { resultHash, ...resultFields } = value;
+  if (resultHash.toLowerCase() !== computeResultHashV2(resultFields).toLowerCase()) {
+    throw new Error("resultHash must equal the canonical V2 result hash");
   }
 }

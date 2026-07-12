@@ -48,6 +48,10 @@ describe("V2 JSON codec", () => {
     expect(() => parseUint256((1n << 256n).toString())).toThrow(/uint256/);
   });
 
+  it("rejects numeric negative zero as a non-canonical uint16", () => {
+    expect(() => parseUint16(-0)).toThrow(/uint16/);
+  });
+
   it.each(["nonce", "deadline", "ftsoPriceTimestamp", "chainId", "minimumPostNAV"])(
     "rejects JSON numbers for uint256 field %s",
     (field) => {
@@ -101,6 +105,14 @@ describe("V2 JSON codec", () => {
       { ...request, capabilityProfile: wrongProfile },
       { ...validationContext, capabilityProfile: wrongProfile },
     )).toThrow(/Coston2/);
+  });
+
+  it("rejects a zero router config hash even when it matches context", () => {
+    const zeroHash = `0x${"00".repeat(32)}` as Hex;
+    expect(() => parseAllocateRequestV2(
+      { ...request, routerConfigHash: zeroHash },
+      { ...validationContext, routerConfigHash: zeroHash },
+    )).toThrow(/routerConfigHash/);
   });
 
   it("serializes every integer response field as an exact decimal string", () => {

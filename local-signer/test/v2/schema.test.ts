@@ -14,7 +14,7 @@ import type { TEEResultV2 } from "../../src/v2/types.js";
 
 const verifier = "0x0000000000000000000000000000000000001003" as Address;
 const privateKey = `0x${"11".repeat(32)}` as Hex;
-const result: TEEResultV2 = {
+const resultWithoutHash: Omit<TEEResultV2, "resultHash"> = {
   user: "0x0000000000000000000000000000000000001001",
   vault: "0x0000000000000000000000000000000000001002",
   intentCommitment: `0x${"20".repeat(32)}`,
@@ -32,7 +32,10 @@ const result: TEEResultV2 = {
   maximumRebalanceLossBps: 100,
   maximumPreviewDeviationBps: 50,
   allocationToleranceBps: 25,
-  resultHash: `0x${"50".repeat(32)}`,
+};
+const result: TEEResultV2 = {
+  ...resultWithoutHash,
+  resultHash: computeResultHashV2(resultWithoutHash),
 };
 
 function signedFieldMutations(value: TEEResultV2): TEEResultV2[] {
@@ -76,6 +79,19 @@ describe("V2 canonical schema", () => {
     const signature = await signTEEResultV2(result, verifier, privateKey);
     expect(await recoverAddress({ hash: teeResultV2Digest(result, verifier), signature }))
       .toBe("0x19E7E376E7C213B7E7e7e46cc70A5dD086DAff2A");
+  });
+
+  it.each([
+    ["malformed user", { user: "not-an-address" as Address }, /user/],
+    ["zero user", { user: "0x0000000000000000000000000000000000000000" as Address }, /user/],
+    ["malformed vault", { vault: "not-an-address" as Address }, /vault/],
+    ["zero vault", { vault: "0x0000000000000000000000000000000000000000" as Address }, /vault/],
+    ["malformed router config hash", { routerConfigHash: "0x12" as Hex }, /routerConfigHash/],
+    ["zero router config hash", { routerConfigHash: `0x${"00".repeat(32)}` as Hex }, /routerConfigHash/],
+    ["mismatched result hash", { resultHash: `0x${"50".repeat(32)}` as Hex }, /resultHash/],
+  ])("refuses to sign before private-key use: %s", (_name, mutation, message) => {
+    expect(() => signTEEResultV2({ ...result, ...mutation }, verifier, "malformed-key" as Hex))
+      .toThrow(message);
   });
 
   it.each([
@@ -153,5 +169,24 @@ describe("V2 canonical schema", () => {
     for (const mutation of configMutations) {
       expect(computeRouterConfigHashV2(mutation)).not.toBe(configHash);
     }
+  });
+
+  it("encodes the full uint64 range for minimumRebalanceInterval", () => {
+    const risk = {
+      minimumRebalanceInterval: 0n,
+      minimumAllocationChangeBps: 75,
+      maximumRebalanceLossBps: 100,
+      maximumPreviewDeviationBps: 50,
+      allocationToleranceBps: 25,
+    };
+    expect(computeRiskConfigurationHashV2(risk)).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(computeRiskConfigurationHashV2({
+      ...risk,
+      minimumRebalanceInterval: (1n << 64n) - 1n,
+    })).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(() => computeRiskConfigurationHashV2({
+      ...risk,
+      minimumRebalanceInterval: 1n << 64n,
+    })).toThrow(/uint64|number/i);
   });
 });
