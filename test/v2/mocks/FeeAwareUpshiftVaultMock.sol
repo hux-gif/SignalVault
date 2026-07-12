@@ -9,22 +9,52 @@ import {IUpshiftVaultV2} from "../../../src/v2/interfaces/IUpshiftVaultV2.sol";
 import {MockLPTokenV2} from "./MockLPTokenV2.sol";
 
 /// @notice Fee-aware Upshift vault mock for V2 adapter tests.
-/// Implements the verified protocol-native ABI with configurable fee, pause,
-/// reference limit, preview inconsistency, under-transfer, and reentry callback.
+/// Implements the verified protocol-native ABI with configurable bindings,
+/// conversion rates, deterministic previews, withdrawal limits, under-transfer,
+/// and reentry callbacks.
 /// Preview functions remain `view` to match the live ABI; call counts are
 /// asserted via `vm.expectCall` in tests rather than storage counters.
 contract FeeAwareUpshiftVaultMock is IUpshiftVaultV2 {
     using Math for uint256;
     using SafeERC20 for IERC20;
 
-    IERC20 private immutable _asset;
-    MockLPTokenV2 private immutable _lpToken;
+    IERC20 private immutable _actualAsset;
+    MockLPTokenV2 private immutable _actualLPToken;
+    address private _reportedAsset;
+    address private _reportedLPToken;
+
+    uint256 private _shareNumerator = 1;
+    uint256 private _shareDenominator = 1;
+    uint256 private _referenceNumerator = 1;
+    uint256 private _referenceDenominator = 1;
+
+    struct DepositPreviewOverride {
+        bool enabled;
+        uint256 shares;
+        uint256 referenceAmount;
+    }
+
+    struct RedemptionPreviewOverride {
+        bool enabled;
+        uint256 gross;
+        uint256 net;
+        uint256 internalReference;
+    }
+
+    mapping(uint256 amountIn => DepositPreviewOverride value) private _depositPreviewOverrides;
+    mapping(uint256 shares => RedemptionPreviewOverride value) private _redemptionPreviewOverrides;
+
+    enum WithdrawalLimitMode {
+        Gross,
+        Net,
+        InternalReference
+    }
+
+    WithdrawalLimitMode public withdrawalLimitMode;
 
     uint256 private _rawFee; // BPS, 0..10_000
     bool private _paused;
     uint256 private _maxWithdrawalReferenceAmount = type(uint256).max;
-
-    bool private _previewInconsistent;
 
     uint256 private _underTransferAmount; // 0 = disabled, otherwise overrides transfer size
 
@@ -36,12 +66,17 @@ contract FeeAwareUpshiftVaultMock is IUpshiftVaultV2 {
     bool public lastReentrySucceeded;
 
     error AssetMismatch();
+    error InvalidDepositRate();
     error InvalidFee(uint256 fee);
+    error WithdrawalsPaused();
+    error WithdrawalLimitExceeded(uint256 measuredAmount, uint256 limit);
     error ZeroShares();
 
     constructor(address asset_, address lpToken_) {
-        _asset = IERC20(asset_);
-        _lpToken = MockLPTokenV2(lpToken_);
+        _actualAsset = IERC20(asset_);
+        _actualLPToken = MockLPTokenV2(lpToken_);
+        _reportedAsset = asset_;
+        _reportedLPToken = lpToken_;
     }
 
     // ---- Setters ----
@@ -59,8 +94,52 @@ contract FeeAwareUpshiftVaultMock is IUpshiftVaultV2 {
         _maxWithdrawalReferenceAmount = amount_;
     }
 
-    function setPreviewInconsistent(bool inconsistent_) external {
-        _previewInconsistent = inconsistent_;
+    function setReportedAsset(address reportedAsset_) external {
+        _reportedAsset = reportedAsset_;
+    }
+
+    function setReportedLPToken(address reportedLPToken_) external {
+        _reportedLPToken = reportedLPToken_;
+    }
+
+    function setDepositRates(
+        uint256 shareNumerator_,
+        uint256 shareDenominator_,
+        uint256 referenceNumerator_,
+        uint256 referenceDenominator_
+    ) external {
+        if (shareDenominator_ == 0 || referenceDenominator_ == 0) {
+            revert InvalidDepositRate();
+        }
+        _shareNumerator = shareNumerator_;
+        _shareDenominator = shareDenominator_;
+        _referenceNumerator = referenceNumerator_;
+        _referenceDenominator = referenceDenominator_;
+    }
+
+    function setDepositPreviewOverride(
+        uint256 amountIn,
+        bool enabled,
+        uint256 shares,
+        uint256 referenceAmount
+    ) external {
+        _depositPreviewOverrides[amountIn] =
+            DepositPreviewOverride(enabled, shares, referenceAmount);
+    }
+
+    function setRedemptionPreviewOverride(
+        uint256 shares,
+        bool enabled,
+        uint256 gross,
+        uint256 net,
+        uint256 internalReference
+    ) external {
+        _redemptionPreviewOverrides[shares] =
+            RedemptionPreviewOverride(enabled, gross, net, internalReference);
+    }
+
+    function setWithdrawalLimitMode(WithdrawalLimitMode mode) external {
+        withdrawalLimitMode = mode;
     }
 
     function setUnderTransferAmount(uint256 amount_) external {
@@ -78,11 +157,11 @@ contract FeeAwareUpshiftVaultMock is IUpshiftVaultV2 {
     // ---- IUpshiftVaultV2 view functions ----
 
     function asset() external view returns (address) {
-        return address(_asset);
+        return _reportedAsset;
     }
 
     function lpTokenAddress() external view returns (address) {
-        return address(_lpToken);
+        return _reportedLPToken;
     }
 
     function instantRedemptionFee() external view returns (uint256) {
@@ -104,14 +183,13 @@ contract FeeAwareUpshiftVaultMock is IUpshiftVaultV2 {
         view
         returns (uint256 shares, uint256 amountInReferenceTokens)
     {
-        if (assetIn != address(_asset)) revert AssetMismatch();
-        if (_previewInconsistent) {
-            // Use block.timestamp so tests can force divergence via vm.warp.
-            shares = amountIn + block.timestamp;
-        } else {
-            shares = amountIn;
+        if (assetIn != address(_actualAsset)) revert AssetMismatch();
+        DepositPreviewOverride memory previewOverride = _depositPreviewOverrides[amountIn];
+        if (previewOverride.enabled) {
+            return (previewOverride.shares, previewOverride.referenceAmount);
         }
-        amountInReferenceTokens = amountIn;
+        shares = Math.mulDiv(amountIn, _shareNumerator, _shareDenominator);
+        amountInReferenceTokens = Math.mulDiv(amountIn, _referenceNumerator, _referenceDenominator);
     }
 
     function previewRedemption(uint256 shares, bool isInstant)
@@ -119,14 +197,7 @@ contract FeeAwareUpshiftVaultMock is IUpshiftVaultV2 {
         view
         returns (uint256 assetsAmount, uint256 assetsAfterFee)
     {
-        // gross = shares (1:1 mock exchange rate)
-        assetsAmount = shares;
-        if (isInstant) {
-            // net = gross - floor(gross * fee / 10_000)
-            assetsAfterFee = assetsAmount - assetsAmount.mulDiv(_rawFee, 10_000);
-        } else {
-            assetsAfterFee = assetsAmount;
-        }
+        (assetsAmount, assetsAfterFee,) = _redemptionQuote(shares, isInstant);
     }
 
     // ---- State-changing functions ----
@@ -135,26 +206,39 @@ contract FeeAwareUpshiftVaultMock is IUpshiftVaultV2 {
         external
         returns (uint256 shares)
     {
-        if (assetIn != address(_asset)) revert AssetMismatch();
-        shares = amountIn;
-        _asset.safeTransferFrom(msg.sender, address(this), amountIn);
-        _lpToken.mint(receiverAddr, shares);
+        if (assetIn != address(_actualAsset)) revert AssetMismatch();
+        shares = Math.mulDiv(amountIn, _shareNumerator, _shareDenominator);
+        _actualAsset.safeTransferFrom(msg.sender, address(this), amountIn);
+        _actualLPToken.mint(receiverAddr, shares);
     }
 
     function instantRedeem(uint256 shares, address receiverAddr) external {
+        if (_paused) revert WithdrawalsPaused();
         if (shares == 0) revert ZeroShares();
+        (uint256 gross, uint256 net, uint256 internalReference) = _redemptionQuote(shares, true);
+        uint256 measuredAmount;
+        if (withdrawalLimitMode == WithdrawalLimitMode.Gross) {
+            measuredAmount = gross;
+        } else if (withdrawalLimitMode == WithdrawalLimitMode.Net) {
+            measuredAmount = net;
+        } else {
+            measuredAmount = internalReference;
+        }
+        if (measuredAmount > _maxWithdrawalReferenceAmount) {
+            revert WithdrawalLimitExceeded(measuredAmount, _maxWithdrawalReferenceAmount);
+        }
         // Burn LP from caller (no protocol return value to trust).
-        _lpToken.burn(msg.sender, shares);
+        _actualLPToken.burn(msg.sender, shares);
 
         // Compute transfer amount: under-transfer override, otherwise net of fee.
         uint256 transferAmount;
         if (_underTransferAmount > 0) {
             transferAmount = _underTransferAmount;
         } else {
-            transferAmount = shares - shares.mulDiv(_rawFee, 10_000);
+            transferAmount = net;
         }
 
-        _asset.safeTransfer(receiverAddr, transferAmount);
+        _actualAsset.safeTransfer(receiverAddr, transferAmount);
 
         // Best-effort reentry callback; failures are swallowed so the outer call
         // does not revert purely due to the callback. Task 5 introduces a
@@ -168,5 +252,19 @@ contract FeeAwareUpshiftVaultMock is IUpshiftVaultV2 {
             reentryAttemptCount++;
             lastReentrySucceeded = ok;
         }
+    }
+
+    function _redemptionQuote(uint256 shares, bool isInstant)
+        private
+        view
+        returns (uint256 gross, uint256 net, uint256 internalReference)
+    {
+        RedemptionPreviewOverride memory previewOverride = _redemptionPreviewOverrides[shares];
+        if (previewOverride.enabled) {
+            return (previewOverride.gross, previewOverride.net, previewOverride.internalReference);
+        }
+        gross = shares;
+        net = isInstant ? gross - gross.mulDiv(_rawFee, 10_000) : gross;
+        internalReference = gross;
     }
 }
