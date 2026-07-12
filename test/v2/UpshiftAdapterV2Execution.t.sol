@@ -307,6 +307,24 @@ contract UpshiftAdapterV2AdversarialExecutionTest is Test {
         assertEq(falseAsset.balanceOf(address(this)), 0);
     }
 
+    function testWithdrawLiquidRejectsRouterUnderReceiptAndRollsBack() external {
+        SkimmingERC20V2 skimAsset = new SkimmingERC20V2();
+        MockLPTokenV2 skimLP = new MockLPTokenV2("SkimLP", "SLP", 18);
+        ExecutionUpshiftVaultMock skimProtocol =
+            new ExecutionUpshiftVaultMock(address(skimAsset), address(skimLP));
+        UpshiftAdapterV2 skimAdapter = new UpshiftAdapterV2(
+            IERC20(address(skimAsset)), address(this), skimProtocol, IERC20(address(skimLP))
+        );
+        skimAsset.mint(address(skimAdapter), 100);
+        skimAsset.setTransferShortfall(address(skimAdapter), 1);
+
+        vm.expectRevert(UpshiftAdapterV2.RouterDeltaMismatch.selector);
+        skimAdapter.withdrawLiquid(50);
+
+        assertEq(skimAsset.balanceOf(address(skimAdapter)), 100);
+        assertEq(skimAsset.balanceOf(address(this)), 0);
+    }
+
     function testDepositUsesActualReceivedAssetsAfterTransferFromShortfall() external {
         SkimmingERC20V2 skimAsset = new SkimmingERC20V2();
         MockLPTokenV2 skimLP = new MockLPTokenV2("SkimLP", "SLP", 18);
@@ -349,6 +367,22 @@ contract UpshiftAdapterV2AdversarialExecutionTest is Test {
         assertEq(protocol.lastObservedDepositAllowance(), 1_000);
         assertEq(asset.allowance(address(adapter), address(protocol)), 0);
         assertEq(lp.allowance(address(adapter), address(protocol)), 0);
+    }
+
+    function testDepositApprovalCannotExposePreexistingDirectDonationToOverPull() external {
+        asset.mint(address(adapter), 777);
+        protocol.setDepositPullOverride(true, 1_777);
+        _fundAndApprove(1_000);
+
+        vm.expectRevert();
+        adapter.deposit(1_000, 1);
+
+        assertEq(asset.balanceOf(address(this)), 1_000);
+        assertEq(asset.balanceOf(address(adapter)), 777);
+        assertEq(asset.balanceOf(address(protocol)), 0);
+        assertEq(lp.balanceOf(address(adapter)), 0);
+        assertEq(asset.allowance(address(adapter), address(protocol)), 0);
+        assertEq(asset.allowance(address(this), address(adapter)), 1_000);
     }
 
     function testDepositEventSeparatesRequestedPreviewedAndActualValues() external {
@@ -512,6 +546,29 @@ contract UpshiftAdapterV2AdversarialExecutionTest is Test {
         assertEq(falseAsset.balanceOf(address(falseAdapter)), 0);
     }
 
+    function testRedeemFalseReturnAdapterTransferRevertsAtomically() external {
+        SkimmingERC20V2 falseAsset = new SkimmingERC20V2();
+        MockLPTokenV2 falseLP = new MockLPTokenV2("FalseLP", "FLP", 18);
+        ExecutionUpshiftVaultMock falseProtocol =
+            new ExecutionUpshiftVaultMock(address(falseAsset), address(falseLP));
+        UpshiftAdapterV2 falseAdapter = new UpshiftAdapterV2(
+            IERC20(address(falseAsset)), address(this), falseProtocol, IERC20(address(falseLP))
+        );
+        falseLP.mint(address(falseAdapter), 100);
+        falseAsset.mint(address(falseProtocol), 100);
+        falseAsset.setFalseTransferSender(address(falseAdapter));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(SafeERC20.SafeERC20FailedOperation.selector, address(falseAsset))
+        );
+        falseAdapter.redeem(100, 0);
+
+        assertEq(falseLP.balanceOf(address(falseAdapter)), 100);
+        assertEq(falseAsset.balanceOf(address(falseProtocol)), 100);
+        assertEq(falseAsset.balanceOf(address(falseAdapter)), 0);
+        assertEq(falseAsset.balanceOf(address(this)), 0);
+    }
+
     function reenterRedeemPath() external {
         adapter.withdrawLiquid(1);
     }
@@ -590,6 +647,20 @@ contract UpshiftAdapterV2AdversarialExecutionTest is Test {
         vm.expectRevert(UpshiftAdapterV2.WithdrawalLimitExceeded.selector);
         adapter.redeemAll(0);
         assertEq(asset.balanceOf(address(adapter)), 7);
+        assertEq(lp.balanceOf(address(adapter)), 100);
+    }
+
+    function testRedeemAllUnderTransferFailsFullExpectedMinOutAndRollsBack() external {
+        asset.mint(address(adapter), 7);
+        _seedPosition(100);
+        protocol.setRedeemTransferOverride(true, 99);
+
+        vm.expectRevert(UpshiftAdapterV2.InsufficientAssetsOut.selector);
+        adapter.redeemAll(107);
+
+        assertEq(asset.balanceOf(address(this)), 0);
+        assertEq(asset.balanceOf(address(adapter)), 7);
+        assertEq(asset.balanceOf(address(protocol)), 100);
         assertEq(lp.balanceOf(address(adapter)), 100);
     }
 

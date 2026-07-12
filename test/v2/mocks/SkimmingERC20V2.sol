@@ -10,6 +10,7 @@ contract SkimmingERC20V2 is ERC20 {
     address public skimTransferFromOwner;
     address public skimTransferSender;
     uint256 public transferShortfall;
+    address public falseTransferSender;
 
     constructor() ERC20("Skimming Token", "SKIM") {}
 
@@ -27,7 +28,12 @@ contract SkimmingERC20V2 is ERC20 {
         transferShortfall = shortfall;
     }
 
+    function setFalseTransferSender(address sender) external {
+        falseTransferSender = sender;
+    }
+
     function transfer(address receiver, uint256 amount) public override returns (bool) {
+        if (msg.sender == falseTransferSender) return false;
         uint256 shortfall = msg.sender == skimTransferSender ? transferShortfall : 0;
         _skimTransfer(msg.sender, receiver, amount, shortfall);
         return true;
