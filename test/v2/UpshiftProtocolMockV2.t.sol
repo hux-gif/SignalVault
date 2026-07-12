@@ -94,6 +94,7 @@ contract UpshiftProtocolMockV2Test is Test {
         assertTrue(protocol.withdrawalsPaused());
         assertEq(protocol.maxWithdrawalAmount(), 0);
 
+        asset.mint(address(protocol), 1);
         lp.mint(address(this), 1);
         vm.expectRevert();
         protocol.instantRedeem(1, address(this));
