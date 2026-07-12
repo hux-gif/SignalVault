@@ -173,6 +173,28 @@ contract UpshiftProtocolMockV2Test is Test {
         assertTrue(abi.decode(successData, (bool)));
     }
 
+    function testArmingCallbackResetsObservabilityBeforeNextAttempt() external {
+        ObservableCallbackReceiverV2 receiver = new ObservableCallbackReceiverV2();
+        asset.mint(address(protocol), 2);
+        lp.mint(address(this), 2);
+        protocol.armReentry(
+            address(receiver), abi.encodeCall(ObservableCallbackReceiverV2.recordCallback, ())
+        );
+        protocol.instantRedeem(1, address(this));
+        assertEq(protocol.reentryAttemptCount(), 1);
+        assertTrue(protocol.lastReentrySucceeded());
+
+        protocol.armReentry(
+            address(receiver), abi.encodeCall(ObservableCallbackReceiverV2.revertCallback, ())
+        );
+        assertEq(protocol.reentryAttemptCount(), 0);
+        assertFalse(protocol.lastReentrySucceeded());
+
+        protocol.instantRedeem(1, address(this));
+        assertEq(protocol.reentryAttemptCount(), 1);
+        assertFalse(protocol.lastReentrySucceeded());
+    }
+
     function testCallbackFailureIsObservableAndSwallowed() external {
         ObservableCallbackReceiverV2 receiver = new ObservableCallbackReceiverV2();
         asset.mint(address(protocol), 10_000);
@@ -219,6 +241,7 @@ contract UpshiftProtocolMockV2Test is Test {
         falseAsset.mint(address(localProtocol), 10_000);
         localLP.mint(address(this), 10_000);
         falseAsset.setFailureMode(FalseReturnERC20V2.FailureMode.Transfer);
+        uint256 receiverAssetsBefore = falseAsset.balanceOf(address(this));
 
         vm.expectRevert(
             abi.encodeWithSelector(SafeERC20.SafeERC20FailedOperation.selector, address(falseAsset))
@@ -227,6 +250,7 @@ contract UpshiftProtocolMockV2Test is Test {
 
         assertEq(localLP.balanceOf(address(this)), 10_000);
         assertEq(falseAsset.balanceOf(address(localProtocol)), 10_000);
+        assertEq(falseAsset.balanceOf(address(this)), receiverAssetsBefore);
     }
 
     function testAssetAndLPTokenBindings() external view {
@@ -257,6 +281,13 @@ contract UpshiftProtocolMockV2Test is Test {
         assertEq(shares, 10_000);
         assertEq(lp.balanceOf(address(this)), 10_000);
         assertEq(asset.balanceOf(address(protocol)), 10_000);
+
+        uint256 ownerAssetsBefore = asset.balanceOf(address(this));
+        protocol.instantRedeem(shares, address(this));
+        assertEq(asset.balanceOf(address(this)) - ownerAssetsBefore, 10_000);
+        assertEq(lp.balanceOf(address(this)), 0);
+        assertEq(protocol.asset(), reportedAsset);
+        assertEq(protocol.lpTokenAddress(), reportedLPToken);
     }
 
     function testDepositRatesUseFloorRoundingForPreviewAndExecution() external {
@@ -275,6 +306,7 @@ contract UpshiftProtocolMockV2Test is Test {
         assertEq(ownerAssetsBefore - asset.balanceOf(address(this)), 3);
         assertEq(asset.balanceOf(address(protocol)), 3);
         assertEq(asset.allowance(address(this), address(protocol)), 0);
+        assertEq(lp.allowance(address(this), address(protocol)), 0);
     }
 
     function testDepositRatesRejectZeroDenominators() external {

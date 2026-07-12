@@ -55,24 +55,30 @@ interface IStrategyAdapterV2 {
         view
         returns (uint256 grossAssets_, uint256 netAssets);
 
-    /// @notice Transfers direct underlying liquidity without redeeming position shares.
+    /// @notice Router-only normal operation that transfers direct underlying to the Router caller
+    /// without redeeming position shares; it is not an emergency position-recovery path.
     /// @param assets Requested underlying amount.
     /// @return assetsReceived Measured underlying delivered to the caller.
     function withdrawLiquid(uint256 assets) external returns (uint256 assetsReceived);
 
-    /// @notice Deposits underlying using an exact, temporary protocol approval.
-    /// @param assets Underlying amount supplied by the caller.
+    /// @notice Router-only normal operation that pulls underlying from the Router caller and
+    /// deposits it using an exact, temporary protocol approval.
+    /// @param assets Underlying amount supplied by the Router caller.
     /// @param minSharesOut Minimum acceptable measured shares received.
     /// @return sharesReceived Measured position shares received.
     function deposit(uint256 assets, uint256 minSharesOut) external returns (uint256 sharesReceived);
 
-    /// @notice Redeems a specified number of position shares.
+    /// @notice Router-only normal operation that redeems position shares and transfers the
+    /// measured underlying output to the Router caller.
     /// @param shares Position shares to redeem.
     /// @param minAssetsOut Minimum acceptable measured underlying received.
     /// @return assetsReceived Measured underlying received by the caller.
     function redeem(uint256 shares, uint256 minAssetsOut) external returns (uint256 assetsReceived);
 
-    /// @notice Redeems the complete normal position and reconciles recoverable underlying.
+    /// @notice Router-only normal operation that redeems the complete position, transfers every
+    /// recoverable underlying unit to the Router caller, and succeeds only with zero underlying
+    /// and zero position-token balance remaining in the adapter. Non-redeemable position tokens
+    /// require the separate emergency recovery interface.
     /// @param minAssetsOut Minimum acceptable measured underlying received.
     /// @return assetsReceived Measured underlying received by the caller.
     function redeemAll(uint256 minAssetsOut) external returns (uint256 assetsReceived);
