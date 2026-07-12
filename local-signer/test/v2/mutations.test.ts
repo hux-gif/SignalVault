@@ -51,14 +51,22 @@ const mutations: [string, (value: TEEResultV2) => TEEResultV2][] = [
 ];
 
 describe("V2 signed-field mutation matrix", () => {
-  it.each(mutations)("rejects the original signature after mutating %s", async (_field, mutate) => {
+  it.each(mutations)("rejects the original signature after mutating %s", async (field, mutate) => {
     const mutated = mutate(result);
     const recovered = await recoverAddress({
       hash: teeResultV2Digest(mutated, fixture.input.intentVerifier),
       signature: fixture.expected.signature,
     });
     const { resultHash: _, ...unsigned } = mutated;
-    expect(recovered === fixture.expected.signer && computeResultHashV2(unsigned) === mutated.resultHash).toBe(false);
+    expect(recovered).not.toBe(fixture.expected.signer);
+    const recomputedCanonicalHash = computeResultHashV2(unsigned);
+    if (field === "resultHash") {
+      expect(recomputedCanonicalHash).toBe(result.resultHash);
+      expect(recomputedCanonicalHash).not.toBe(mutated.resultHash);
+    } else {
+      expect(recomputedCanonicalHash).not.toBe(result.resultHash);
+      expect(recomputedCanonicalHash).not.toBe(mutated.resultHash);
+    }
   });
 
   it("separates V2 from V1 domains, verifier addresses, V1 canonical hashes, and result domains", async () => {
