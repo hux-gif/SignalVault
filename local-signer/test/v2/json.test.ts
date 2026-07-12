@@ -7,10 +7,11 @@ import {
   stringifyV2Response,
 } from "../../src/v2/json.js";
 import type { V2ValidationContext } from "../../src/v2/types.js";
+import { COSTON2_CAPABILITY_PROFILE } from "../../src/v2/validation.js";
 
 const vault = "0x0000000000000000000000000000000000001002" as Address;
 const intentVerifier = "0x0000000000000000000000000000000000001003" as Address;
-const capabilityProfile = "0x7498d31e561984b05a8781d83e877e14abc931043446e1f275b8ee0a7db7f208" as Hex;
+const capabilityProfile = COSTON2_CAPABILITY_PROFILE;
 const routerConfigHash = `0x${"40".repeat(32)}` as Hex;
 const validationContext: V2ValidationContext = {
   chainId: 114n,

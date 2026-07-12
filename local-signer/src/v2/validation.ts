@@ -1,9 +1,11 @@
-import { isAddress, isHex, type Address, type Hex } from "viem";
+import { isAddress, isHex, keccak256, stringToHex, type Address, type Hex } from "viem";
 import { computeResultHashV2 } from "./resultHash.js";
 import type { AllocationV2, TEEResultV2 } from "./types.js";
 
-const COSTON2_CAPABILITY_PROFILE: Hex =
-  "0x7498d31e561984b05a8781d83e877e14abc931043446e1f275b8ee0a7db7f208";
+export const COSTON2_UPSHIFT_IDLE_PROFILE_NAME = "SIGNALVAULT_COSTON2_UPSHIFT_IDLE_V1";
+export const COSTON2_CAPABILITY_PROFILE: Hex = keccak256(
+  stringToHex(COSTON2_UPSHIFT_IDLE_PROFILE_NAME),
+);
 const ZERO_ADDRESS: Address = "0x0000000000000000000000000000000000000000";
 const ZERO_BYTES32: Hex = `0x${"00".repeat(32)}`;
 

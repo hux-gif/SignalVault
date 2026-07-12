@@ -11,6 +11,7 @@ import {
   teeResultV2Domain,
 } from "../../src/v2/typedData.js";
 import type { TEEResultV2 } from "../../src/v2/types.js";
+import { COSTON2_CAPABILITY_PROFILE } from "../../src/v2/validation.js";
 
 const verifier = "0x0000000000000000000000000000000000001003" as Address;
 const privateKey = `0x${"11".repeat(32)}` as Hex;
@@ -18,7 +19,7 @@ const resultWithoutHash: Omit<TEEResultV2, "resultHash"> = {
   user: "0x0000000000000000000000000000000000001001",
   vault: "0x0000000000000000000000000000000000001002",
   intentCommitment: `0x${"20".repeat(32)}`,
-  capabilityProfile: "0x7498d31e561984b05a8781d83e877e14abc931043446e1f275b8ee0a7db7f208",
+  capabilityProfile: COSTON2_CAPABILITY_PROFILE,
   routerConfigHash: `0x${"40".repeat(32)}`,
   upshiftBps: 5_000,
   firelightBps: 0,

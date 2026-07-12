@@ -13,6 +13,7 @@ import { computeRiskConfigurationHashV2, computeRouterConfigHashV2 } from "../..
 import { computeResultHashV2 } from "../../src/v2/resultHash.js";
 import { teeResultV2Digest } from "../../src/v2/typedData.js";
 import type { RiskConfigurationV2, RouterConfigurationV2, TEEResultV2 } from "../../src/v2/types.js";
+import { COSTON2_CAPABILITY_PROFILE } from "../../src/v2/validation.js";
 
 export const fixture = JSON.parse(readFileSync(
   new URL("../../../fixtures/tee-result-v2.json", import.meta.url), "utf8",
@@ -81,6 +82,7 @@ describe("V2 cross-language golden fixture", () => {
     const { resultHash: _, ...unsigned } = result;
     expect(computeResultHashV2(unsigned)).toBe(fixture.expected.resultHash);
     expect(result.resultHash).toBe(fixture.expected.resultHash);
+    expect(COSTON2_CAPABILITY_PROFILE.toLowerCase()).toBe((fixture.result.capabilityProfile as string).toLowerCase());
     expect(structHash(result)).toBe(fixture.expected.structHash);
     expect(domainSeparator(result.chainId, fixture.input.intentVerifier)).toBe(fixture.expected.eip712DomainSeparator);
     expect(teeResultV2Digest(result, fixture.input.intentVerifier)).toBe(fixture.expected.typedDataDigest);
