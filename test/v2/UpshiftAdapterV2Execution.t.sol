@@ -3,6 +3,7 @@ pragma solidity 0.8.27;
 
 import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {UpshiftAdapterV2} from "../../src/v2/adapters/UpshiftAdapterV2.sol";
@@ -297,7 +298,9 @@ contract UpshiftAdapterV2AdversarialExecutionTest is Test {
         falseAsset.mint(address(falseAdapter), 100);
         falseAsset.setFailureMode(FalseReturnERC20V2.FailureMode.Transfer);
 
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(SafeERC20.SafeERC20FailedOperation.selector, address(falseAsset))
+        );
         falseAdapter.withdrawLiquid(50);
 
         assertEq(falseAsset.balanceOf(address(falseAdapter)), 100);
