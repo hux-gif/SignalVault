@@ -456,6 +456,90 @@ contract UpshiftAdapterV2AdversarialExecutionTest is Test {
         assertEq(protocol.depositCallCount(), 0);
     }
 
+    /// @dev Direct reentrancy test: the callback calls adapter.deposit (not withdrawLiquid)
+    /// so the inner deposit hits the ReentrancyGuard directly. Removing the outer
+    /// deposit.nonReentrant lets the inner deposit proceed and the expected selector
+    /// never materializes, failing the test without relying on bypass errors.
+    function reenterDepositDirectly() external {
+        // Disarm callback so it only fires once.
+        protocol.armDepositCallback(address(0), "");
+        // Inner deposit — router (test contract) has pre-funded balance and allowance.
+        adapter.deposit(50, 1);
+    }
+
+    function testDepositProtocolCallbackHitsReentrancyGuardDirectly() external {
+        // Fund for outer (100) and inner (50) deposits.
+        _fundAndApprove(150);
+        protocol.armDepositCallback(address(this), abi.encodeCall(this.reenterDepositDirectly, ()));
+
+        vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
+        adapter.deposit(100, 1);
+
+        assertEq(asset.balanceOf(address(this)), 150);
+        assertEq(asset.balanceOf(address(adapter)), 0);
+        assertEq(lp.balanceOf(address(adapter)), 0);
+        assertEq(asset.balanceOf(address(protocol)), 0);
+        assertEq(asset.allowance(address(adapter), address(protocol)), 0);
+        assertEq(lp.allowance(address(adapter), address(protocol)), 0);
+        assertEq(protocol.depositCallCount(), 0);
+    }
+
+    /// @dev M4b: skimming transferFrom (shortfall=1) combined with a malicious protocol
+    /// over-pull (= requested assets, not actualAssetsReceived). Correct code approves
+    /// only actualAssetsReceived (999), so the protocol's attempt to pull 1_000 reverts.
+    /// Mutating the approval to use `assets` lets the over-pull succeed and steal donation.
+    function testDepositApprovalUsesActualReceivedUnderSkimmingAndOverPull() external {
+        SkimmingERC20V2 skimAsset = new SkimmingERC20V2();
+        MockLPTokenV2 skimLP = new MockLPTokenV2("SkimLP", "SLP", 18);
+        ExecutionUpshiftVaultMock skimProtocol =
+            new ExecutionUpshiftVaultMock(address(skimAsset), address(skimLP));
+        UpshiftAdapterV2 skimAdapter = new UpshiftAdapterV2(
+            IERC20(address(skimAsset)), address(this), skimProtocol, IERC20(address(skimLP))
+        );
+
+        // D = 100 preexisting direct donation.
+        skimAsset.mint(address(skimAdapter), 100);
+        // A = 1_000 requested, S = 1 shortfall → actualAssetsReceived = 999.
+        skimAsset.mint(address(this), 1_000);
+        skimAsset.approve(address(skimAdapter), 1_000);
+        skimAsset.setTransferFromShortfall(address(this), 1);
+        // Malicious protocol tries to pull A = 1_000 instead of 999.
+        skimProtocol.setDepositPullOverride(true, 1_000);
+
+        vm.expectRevert();
+        skimAdapter.deposit(1_000, 1);
+
+        // Rollback: everything restored.
+        assertEq(skimAsset.balanceOf(address(this)), 1_000);
+        assertEq(skimAsset.balanceOf(address(skimAdapter)), 100);
+        assertEq(skimAsset.balanceOf(address(skimProtocol)), 0);
+        assertEq(skimLP.balanceOf(address(skimAdapter)), 0);
+        assertEq(skimAsset.allowance(address(skimAdapter), address(skimProtocol)), 0);
+        assertEq(skimLP.allowance(address(skimAdapter), address(skimProtocol)), 0);
+    }
+
+    /// @dev Verifies protocol.deposit receives actualAssetsReceived (not requested assets)
+    /// as amountIn under a skimming transferFrom shortfall.
+    function testDepositPassesActualReceivedAsProtocolAmountIn() external {
+        SkimmingERC20V2 skimAsset = new SkimmingERC20V2();
+        MockLPTokenV2 skimLP = new MockLPTokenV2("SkimLP", "SLP", 18);
+        ExecutionUpshiftVaultMock skimProtocol =
+            new ExecutionUpshiftVaultMock(address(skimAsset), address(skimLP));
+        UpshiftAdapterV2 skimAdapter = new UpshiftAdapterV2(
+            IERC20(address(skimAsset)), address(this), skimProtocol, IERC20(address(skimLP))
+        );
+
+        skimAsset.mint(address(this), 1_000);
+        skimAsset.approve(address(skimAdapter), 1_000);
+        skimAsset.setTransferFromShortfall(address(this), 1);
+
+        skimAdapter.deposit(1_000, 999);
+
+        // Protocol must receive actualAssetsReceived (999), not requested assets (1_000).
+        assertEq(skimProtocol.lastRequestedDepositAmount(), 999);
+        assertEq(skimProtocol.lastObservedDepositAllowance(), 999);
+    }
+
     function testRedeemRejectsUnderBurnAndRollsBack() external {
         _seedPosition(100);
         protocol.setRedeemBurnOverride(true, 99);
