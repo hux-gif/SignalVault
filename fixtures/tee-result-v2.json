@@ -1,0 +1,66 @@
+{
+  "testOnly": true,
+  "domains": {
+    "resultV2": "0x0e54056d575a30a9e85ee95f9a537acaa4b6f3565ce09eb0aed1a06ee8340a87",
+    "eip712": {
+      "name": "SignalVault",
+      "version": "2",
+      "chainId": "31337",
+      "verifyingContract": "0x4444444444444444444444444444444444444444"
+    }
+  },
+  "input": {
+    "intentVerifier": "0x4444444444444444444444444444444444444444",
+    "riskConfiguration": {
+      "minimumRebalanceInterval": "3600",
+      "minimumAllocationChangeBps": "250",
+      "maximumRebalanceLossBps": "100",
+      "maximumPreviewDeviationBps": "75",
+      "allocationToleranceBps": "25"
+    },
+    "routerConfiguration": {
+      "chainId": "31337",
+      "vault": "0x2222222222222222222222222222222222222222",
+      "router": "0x5555555555555555555555555555555555555555",
+      "asset": "0x6666666666666666666666666666666666666666",
+      "upshiftAdapter": "0x7777777777777777777777777777777777777777",
+      "idleAdapter": "0x8888888888888888888888888888888888888888",
+      "capabilityProfile": "0x7498d31e561984b05a8781d83e877e14abc931043446e1f275b8ee0a7db7f208",
+      "riskConfigurationHash": "0xc6cd0e8209e3bed7195bc2b445a7fa0b2ec0a56023bb0f5be6750a05353ea4c8",
+      "version": "1"
+    }
+  },
+  "result": {
+    "user": "0x1111111111111111111111111111111111111111",
+    "vault": "0x2222222222222222222222222222222222222222",
+    "intentCommitment": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "capabilityProfile": "0x7498d31e561984b05a8781d83e877e14abc931043446e1f275b8ee0a7db7f208",
+    "routerConfigHash": "0x8e6e3117852821bc5467c15312e6c38f73fac5fe312e8ab627e404562eda86b1",
+    "upshiftBps": "5000",
+    "firelightBps": "0",
+    "sparkdexBps": "0",
+    "idleBps": "5000",
+    "nonce": "42",
+    "deadline": "2000000000",
+    "ftsoPriceTimestamp": "1999999000",
+    "chainId": "31337",
+    "minimumPostNAV": "1000000000000000000",
+    "maximumRebalanceLossBps": "100",
+    "maximumPreviewDeviationBps": "75",
+    "allocationToleranceBps": "25",
+    "resultHash": "0x95c2595eb6e8c4a014483929612fa97fa7702dff931ac617af278eef22be062c"
+  },
+  "expected": {
+    "riskConfigurationHash": "0xc6cd0e8209e3bed7195bc2b445a7fa0b2ec0a56023bb0f5be6750a05353ea4c8",
+    "routerConfigHash": "0x8e6e3117852821bc5467c15312e6c38f73fac5fe312e8ab627e404562eda86b1",
+    "resultHash": "0x95c2595eb6e8c4a014483929612fa97fa7702dff931ac617af278eef22be062c",
+    "v1EquivalentResultHash": "0xe4bd73d839c76a79d5171d52b946b4e2517c4fc318d14c20788d069aadb17b69",
+    "eip712DomainSeparator": "0x9c738ecbe9d01e086704140958d96c7b2dbc91280a7169e0ebbeb2f276ecf7f6",
+    "structHash": "0xe424be6cae5bfcfdab95ac6fb7be6d6b05455e51ebe2ab59f22da7e55a0334de",
+    "typedDataDigest": "0xa5467e5e17643aaa8a5104abc18b1532accca7570115790648ff5e84efbec565",
+    "domainVersion1Digest": "0x3c4563bad835c90b19a3cfc2bf42c3f7da8b1f8373867134ed2d6f3b696bba37",
+    "signer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "signature": "0xcf2258809fdcad06a9acb76f62af9606167f46c66baa2ca99c4e4c69969f983240c14fe2ede7ae1f870c064964b38d93c6ecd51f41799b708652ea1d2750b88b1c",
+    "domainVersion1Signature": "0x1dec2f4ffdf7bb73e2e6da8bf5b179c170f07f936134b7b569904674386acad43077eeb9181ad9bdc6c4a03937c12f2e52235ec4965eb45721729019984111781c"
+  }
+}
