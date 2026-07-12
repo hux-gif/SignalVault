@@ -125,7 +125,7 @@ contract UpshiftProtocolMockV2Test is Test {
     }
 
     function testInstantRedeemMatchesPreviewAndBurnsExactShares() external {
-        protocol.setInstantFee(0);
+        protocol.setInstantFee(50);
         (uint256 shares,) = protocol.previewDeposit(address(asset), 10_000);
         asset.mint(address(protocol), 10_000);
         lp.mint(address(this), shares);
@@ -140,6 +140,15 @@ contract UpshiftProtocolMockV2Test is Test {
         assertEq(protocolAssetsBefore - asset.balanceOf(address(protocol)), expectedNet);
         assertEq(callerLPBefore - lp.balanceOf(address(this)), shares);
         assertEq(lp.allowance(address(this), address(protocol)), 0);
+    }
+
+    function testDepositReferencePreviewDoesNotApplyRedemptionFee() external {
+        protocol.setInstantFee(5_000);
+
+        (uint256 shares, uint256 referenceAmount) = protocol.previewDeposit(address(asset), 10_000);
+
+        assertEq(shares, 10_000);
+        assertEq(referenceAmount, 10_000);
     }
 
     function testSuccessfulCallbackIsObservable() external {
