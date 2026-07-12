@@ -3,6 +3,7 @@ pragma solidity 0.8.27;
 
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {IUpshiftVaultV2} from "../../../src/v2/interfaces/IUpshiftVaultV2.sol";
 import {MockLPTokenV2} from "./MockLPTokenV2.sol";
@@ -14,6 +15,7 @@ import {MockLPTokenV2} from "./MockLPTokenV2.sol";
 /// asserted via `vm.expectCall` in tests rather than storage counters.
 contract FeeAwareUpshiftVaultMock is IUpshiftVaultV2 {
     using Math for uint256;
+    using SafeERC20 for IERC20;
 
     IERC20 private immutable _asset;
     MockLPTokenV2 private immutable _lpToken;
@@ -30,7 +32,11 @@ contract FeeAwareUpshiftVaultMock is IUpshiftVaultV2 {
     address private _reentryTarget;
     bytes private _reentryCallback;
 
+    uint256 public reentryAttemptCount;
+    bool public lastReentrySucceeded;
+
     error AssetMismatch();
+    error InvalidFee(uint256 fee);
     error ZeroShares();
 
     constructor(address asset_, address lpToken_) {
@@ -41,6 +47,7 @@ contract FeeAwareUpshiftVaultMock is IUpshiftVaultV2 {
     // ---- Setters ----
 
     function setInstantFee(uint256 fee_) external {
+        if (fee_ > 10_000) revert InvalidFee(fee_);
         _rawFee = fee_;
     }
 
@@ -64,6 +71,8 @@ contract FeeAwareUpshiftVaultMock is IUpshiftVaultV2 {
         _reentryArmed = true;
         _reentryTarget = target_;
         _reentryCallback = callback_;
+        reentryAttemptCount = 0;
+        lastReentrySucceeded = false;
     }
 
     // ---- IUpshiftVaultV2 view functions ----
@@ -128,7 +137,7 @@ contract FeeAwareUpshiftVaultMock is IUpshiftVaultV2 {
     {
         if (assetIn != address(_asset)) revert AssetMismatch();
         shares = amountIn;
-        _asset.transferFrom(msg.sender, address(this), amountIn);
+        _asset.safeTransferFrom(msg.sender, address(this), amountIn);
         _lpToken.mint(receiverAddr, shares);
     }
 
@@ -145,7 +154,7 @@ contract FeeAwareUpshiftVaultMock is IUpshiftVaultV2 {
             transferAmount = shares - shares.mulDiv(_rawFee, 10_000);
         }
 
-        _asset.transfer(receiverAddr, transferAmount);
+        _asset.safeTransfer(receiverAddr, transferAmount);
 
         // Best-effort reentry callback; failures are swallowed so the outer call
         // does not revert purely due to the callback. Task 5 introduces a
@@ -156,10 +165,8 @@ contract FeeAwareUpshiftVaultMock is IUpshiftVaultV2 {
             address target = _reentryTarget;
             bytes memory callback = _reentryCallback;
             (bool ok,) = target.call(callback);
-            if (!ok) {
-                // Intentionally swallow: this mock only arms callbacks for
-                // accounting/counter assertions, not for adapter protection.
-            }
+            reentryAttemptCount++;
+            lastReentrySucceeded = ok;
         }
     }
 }

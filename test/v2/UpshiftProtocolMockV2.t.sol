@@ -4,9 +4,12 @@ pragma solidity 0.8.27;
 import {Test} from "forge-std/Test.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {FeeAwareUpshiftVaultMock} from "./mocks/FeeAwareUpshiftVaultMock.sol";
+import {FalseReturnERC20V2} from "./mocks/FalseReturnERC20V2.sol";
 import {MockLPTokenV2} from "./mocks/MockLPTokenV2.sol";
+import {ObservableCallbackReceiverV2} from "./mocks/ObservableCallbackReceiverV2.sol";
 import {IUpshiftVaultV2} from "../../src/v2/interfaces/IUpshiftVaultV2.sol";
 
 contract UpshiftProtocolMockV2Test is Test {
@@ -50,6 +53,17 @@ contract UpshiftProtocolMockV2Test is Test {
         }
     }
 
+    function testFeeBoundsIncludeFullFeeAndRejectAboveTenThousand() external {
+        protocol.setInstantFee(0);
+        protocol.setInstantFee(50);
+        protocol.setInstantFee(10_000);
+        (, uint256 net) = protocol.previewRedemption(10_000, true);
+        assertEq(net, 0);
+
+        vm.expectRevert();
+        protocol.setInstantFee(10_001);
+    }
+
     function testPauseBlocksWithdrawals() external {
         protocol.setPaused(true);
         assertTrue(protocol.withdrawalsPaused());
@@ -90,14 +104,99 @@ contract UpshiftProtocolMockV2Test is Test {
         assertEq(asset.balanceOf(address(this)) - before, 5_000);
     }
 
-    function testReentrantCallback() external {
+    function testInstantRedeemMatchesPreviewAndBurnsExactShares() external {
         protocol.setInstantFee(0);
         (uint256 shares,) = protocol.previewDeposit(address(asset), 10_000);
         asset.mint(address(protocol), 10_000);
         lp.mint(address(this), shares);
-        bytes memory callback = abi.encodeCall(protocol.instantRedeem, (shares, address(this)));
-        protocol.armReentry(address(protocol), callback);
+        (, uint256 expectedNet) = protocol.previewRedemption(shares, true);
+        uint256 receiverAssetsBefore = asset.balanceOf(address(this));
+        uint256 protocolAssetsBefore = asset.balanceOf(address(protocol));
+        uint256 callerLPBefore = lp.balanceOf(address(this));
+
         protocol.instantRedeem(shares, address(this));
+
+        assertEq(asset.balanceOf(address(this)) - receiverAssetsBefore, expectedNet);
+        assertEq(protocolAssetsBefore - asset.balanceOf(address(protocol)), expectedNet);
+        assertEq(callerLPBefore - lp.balanceOf(address(this)), shares);
+        assertEq(lp.allowance(address(this), address(protocol)), 0);
+    }
+
+    function testSuccessfulCallbackIsObservable() external {
+        ObservableCallbackReceiverV2 receiver = new ObservableCallbackReceiverV2();
+        asset.mint(address(protocol), 10_000);
+        lp.mint(address(this), 10_000);
+        protocol.armReentry(
+            address(receiver), abi.encodeCall(ObservableCallbackReceiverV2.recordCallback, ())
+        );
+
+        protocol.instantRedeem(10_000, address(this));
+
+        assertEq(receiver.callbackCount(), 1);
+        (bool countOk, bytes memory countData) =
+            address(protocol).staticcall(abi.encodeWithSignature("reentryAttemptCount()"));
+        (bool successOk, bytes memory successData) =
+            address(protocol).staticcall(abi.encodeWithSignature("lastReentrySucceeded()"));
+        assertTrue(countOk);
+        assertTrue(successOk);
+        assertEq(abi.decode(countData, (uint256)), 1);
+        assertTrue(abi.decode(successData, (bool)));
+    }
+
+    function testCallbackFailureIsObservableAndSwallowed() external {
+        ObservableCallbackReceiverV2 receiver = new ObservableCallbackReceiverV2();
+        asset.mint(address(protocol), 10_000);
+        lp.mint(address(this), 10_000);
+        protocol.armReentry(
+            address(receiver), abi.encodeCall(ObservableCallbackReceiverV2.revertCallback, ())
+        );
+
+        protocol.instantRedeem(10_000, address(this));
+
+        (bool countOk, bytes memory countData) =
+            address(protocol).staticcall(abi.encodeWithSignature("reentryAttemptCount()"));
+        (bool successOk, bytes memory successData) =
+            address(protocol).staticcall(abi.encodeWithSignature("lastReentrySucceeded()"));
+        assertTrue(countOk);
+        assertTrue(successOk);
+        assertEq(abi.decode(countData, (uint256)), 1);
+        assertFalse(abi.decode(successData, (bool)));
+    }
+
+    function testFalseReturnTransferFromRevertsWithoutMintingShares() external {
+        FalseReturnERC20V2 falseAsset = new FalseReturnERC20V2();
+        MockLPTokenV2 localLP = new MockLPTokenV2("LocalLP", "LLP", 6);
+        FeeAwareUpshiftVaultMock localProtocol =
+            new FeeAwareUpshiftVaultMock(address(falseAsset), address(localLP));
+        falseAsset.mint(address(this), 10_000);
+        falseAsset.approve(address(localProtocol), 10_000);
+        falseAsset.setFailureMode(FalseReturnERC20V2.FailureMode.TransferFrom);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(SafeERC20.SafeERC20FailedOperation.selector, address(falseAsset))
+        );
+        localProtocol.deposit(address(falseAsset), 10_000, address(this));
+
+        assertEq(localLP.balanceOf(address(this)), 0);
+        assertEq(falseAsset.balanceOf(address(localProtocol)), 0);
+    }
+
+    function testFalseReturnTransferRevertsAndRollsBackShareBurn() external {
+        FalseReturnERC20V2 falseAsset = new FalseReturnERC20V2();
+        MockLPTokenV2 localLP = new MockLPTokenV2("LocalLP", "LLP", 6);
+        FeeAwareUpshiftVaultMock localProtocol =
+            new FeeAwareUpshiftVaultMock(address(falseAsset), address(localLP));
+        falseAsset.mint(address(localProtocol), 10_000);
+        localLP.mint(address(this), 10_000);
+        falseAsset.setFailureMode(FalseReturnERC20V2.FailureMode.Transfer);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(SafeERC20.SafeERC20FailedOperation.selector, address(falseAsset))
+        );
+        localProtocol.instantRedeem(10_000, address(this));
+
+        assertEq(localLP.balanceOf(address(this)), 10_000);
+        assertEq(falseAsset.balanceOf(address(localProtocol)), 10_000);
     }
 
     function testAssetAndLPTokenBindings() external view {
