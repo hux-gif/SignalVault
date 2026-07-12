@@ -354,4 +354,4 @@ Frontend private/public evidence views
 
 ## License
 
-License information has not yet been added.
+SignalVault is licensed under the [MIT License](LICENSE).
