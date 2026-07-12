@@ -364,41 +364,41 @@ contract UpshiftAdapterV2AccountingTest is Test {
         assertEq(asset.allowance(address(adapter), router), 0);
     }
 
-    // ============ Task 4 execution stubs ============
+    // ============ Task 4 execution access boundary ============
 
-    function testDepositNotImplemented() external {
-        vm.expectRevert(UpshiftAdapterV2.NotImplemented.selector);
+    function testDepositRequiresRouter() external {
+        vm.expectRevert(UpshiftAdapterV2.OnlyRouter.selector);
         adapter.deposit(1, 1);
     }
 
-    function testRedeemNotImplemented() external {
-        vm.expectRevert(UpshiftAdapterV2.NotImplemented.selector);
+    function testRedeemRequiresRouter() external {
+        vm.expectRevert(UpshiftAdapterV2.OnlyRouter.selector);
         adapter.redeem(1, 1);
     }
 
-    function testRedeemAllNotImplemented() external {
-        vm.expectRevert(UpshiftAdapterV2.NotImplemented.selector);
+    function testRedeemAllRequiresRouter() external {
+        vm.expectRevert(UpshiftAdapterV2.OnlyRouter.selector);
         adapter.redeemAll(1);
     }
 
-    function testWithdrawLiquidNotImplemented() external {
-        vm.expectRevert(UpshiftAdapterV2.NotImplemented.selector);
+    function testWithdrawLiquidRequiresRouter() external {
+        vm.expectRevert(UpshiftAdapterV2.OnlyRouter.selector);
         adapter.withdrawLiquid(1);
     }
 
-    function testStubsDoNotCreateAllowanceOrTransfer() external {
+    function testUnauthorizedMutationsDoNotCreateAllowanceOrTransfer() external {
         asset.mint(address(adapter), 1_000);
         seedPosition(1_000);
         uint256 assetBefore = asset.balanceOf(address(adapter));
         uint256 lpBefore = lp.balanceOf(address(adapter));
 
-        vm.expectRevert(UpshiftAdapterV2.NotImplemented.selector);
+        vm.expectRevert(UpshiftAdapterV2.OnlyRouter.selector);
         adapter.deposit(1, 1);
-        vm.expectRevert(UpshiftAdapterV2.NotImplemented.selector);
+        vm.expectRevert(UpshiftAdapterV2.OnlyRouter.selector);
         adapter.redeem(1, 1);
-        vm.expectRevert(UpshiftAdapterV2.NotImplemented.selector);
+        vm.expectRevert(UpshiftAdapterV2.OnlyRouter.selector);
         adapter.redeemAll(1);
-        vm.expectRevert(UpshiftAdapterV2.NotImplemented.selector);
+        vm.expectRevert(UpshiftAdapterV2.OnlyRouter.selector);
         adapter.withdrawLiquid(1);
 
         assertEq(asset.balanceOf(address(adapter)), assetBefore);
