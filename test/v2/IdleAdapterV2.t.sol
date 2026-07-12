@@ -8,6 +8,8 @@ import {IdleAdapterV2} from "../../src/v2/adapters/IdleAdapterV2.sol";
 import {IStrategyAdapterV2} from "../../src/v2/interfaces/IStrategyAdapterV2.sol";
 import {MockLPTokenV2} from "./mocks/MockLPTokenV2.sol";
 import {FalseReturnERC20V2} from "./mocks/FalseReturnERC20V2.sol";
+import {ReentrantERC20V2} from "./mocks/ReentrantERC20V2.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract IdleAdapterV2Test is Test {
     MockLPTokenV2 internal asset;
@@ -293,5 +295,64 @@ contract IdleAdapterV2Test is Test {
     function testImplementsIStrategyAdapterV2() external pure {
         IStrategyAdapterV2 iface = IdleAdapterV2(address(0));
         iface;
+    }
+
+    // ---- protocolStatus semantics ----
+    //
+    // Idle has no external protocol pause, fee, or withdrawal ceiling.
+    // type(uint256).max represents an unbounded reference-asset limit.
+    // Consumers must treat it as a sentinel and must not blindly add to it.
+
+    function testProtocolStatusReturnsIdleDefaults() external view {
+        (
+            bool depositsEnabled,
+            bool withdrawalsEnabled,
+            uint256 maxWithdrawalReferenceAmount,
+            uint256 rawInstantRedemptionFee
+        ) = idle.protocolStatus();
+        assertEq(depositsEnabled, true);
+        assertEq(withdrawalsEnabled, true);
+        assertEq(maxWithdrawalReferenceAmount, type(uint256).max);
+        assertEq(rawInstantRedemptionFee, 0);
+    }
+
+    // ---- Reentrancy protection ----
+    //
+    // Topology: this test contract is the trusted Router. It calls
+    // IdleAdapterV2.deposit, which calls ReentrantERC20V2.transferFrom,
+    // which reenters this contract via reenterDeposit(). reenterDeposit()
+    // calls adapter.deposit again with msg.sender == router, so onlyRouter
+    // passes; the second call must be rejected by ReentrancyGuard.
+
+    ReentrantERC20V2 internal reentrantToken;
+    IdleAdapterV2 internal reentrantAdapter;
+
+    function setUpReentrancy() internal {
+        reentrantToken = new ReentrantERC20V2();
+        // Test contract is the trusted Router.
+        reentrantAdapter = new IdleAdapterV2(IERC20(address(reentrantToken)), address(this));
+        reentrantToken.mint(address(this), 1_000);
+        reentrantToken.approve(address(reentrantAdapter), type(uint256).max);
+    }
+
+    /// @notice Reentry callback invoked by ReentrantERC20V2.transferFrom.
+    function reenterDeposit() external {
+        reentrantAdapter.deposit(1, 1);
+    }
+
+    function testDepositReentrancyIsBlocked() external {
+        setUpReentrancy();
+        bytes memory callback = abi.encodeCall(this.reenterDeposit, ());
+        reentrantToken.armCallback(address(this), callback);
+
+        uint256 adapterBefore = reentrantToken.balanceOf(address(reentrantAdapter));
+        uint256 routerBefore = reentrantToken.balanceOf(address(this));
+
+        vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
+        reentrantAdapter.deposit(100, 1);
+
+        // After revert, state must be unchanged.
+        assertEq(reentrantToken.balanceOf(address(reentrantAdapter)), adapterBefore);
+        assertEq(reentrantToken.balanceOf(address(this)), routerBefore);
     }
 }
