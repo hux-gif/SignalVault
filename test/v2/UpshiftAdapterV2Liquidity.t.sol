@@ -13,6 +13,7 @@ import {MockLPTokenV2} from "./mocks/MockLPTokenV2.sol";
 /// search, 64-call bound, and boundary conditions.
 contract UpshiftAdapterV2LiquidityTest is Test {
     bytes4 internal constant PREVIEW_ZERO_NET = bytes4(keccak256("PreviewZeroNet()"));
+    bytes4 internal constant PREVIEW_REVERTED = bytes4(keccak256("PreviewReverted()"));
     MockLPTokenV2 internal asset;
     MockLPTokenV2 internal lp;
     FeeAwareUpshiftVaultMock internal protocol;
@@ -46,6 +47,9 @@ contract UpshiftAdapterV2LiquidityTest is Test {
         asset.mint(address(adapter), 300);
         seedPosition(10_000);
         protocol.setPaused(true);
+        vm.expectCall(
+            address(protocol), abi.encodePacked(IUpshiftVaultV2.previewRedemption.selector), 1
+        );
         assertEq(adapter.availableLiquidity(), 300);
     }
 
@@ -53,7 +57,98 @@ contract UpshiftAdapterV2LiquidityTest is Test {
         asset.mint(address(adapter), 300);
         seedPosition(10_000);
         protocol.setMaxWithdrawalReferenceAmount(0);
+        vm.expectCall(
+            address(protocol), abi.encodePacked(IUpshiftVaultV2.previewRedemption.selector), 1
+        );
         assertEq(adapter.availableLiquidity(), 300);
+    }
+
+    function testAvailableLiquidityPausedRejectsZeroNetNonzeroPosition() external {
+        asset.mint(address(adapter), 7);
+        seedPosition(100);
+        protocol.setInstantFee(10_000);
+        protocol.setPaused(true);
+
+        vm.expectRevert(PREVIEW_ZERO_NET);
+        adapter.availableLiquidity();
+    }
+
+    function testAvailableLiquidityZeroLimitRejectsZeroNetNonzeroPosition() external {
+        asset.mint(address(adapter), 7);
+        seedPosition(100);
+        protocol.setInstantFee(10_000);
+        protocol.setMaxWithdrawalReferenceAmount(0);
+
+        vm.expectRevert(PREVIEW_ZERO_NET);
+        adapter.availableLiquidity();
+    }
+
+    function testAvailableLiquidityPausedPropagatesPreviewRevert() external {
+        seedPosition(100);
+        protocol.setPaused(true);
+        vm.mockCallRevert(
+            address(protocol),
+            abi.encodeWithSelector(IUpshiftVaultV2.previewRedemption.selector, 100, true),
+            bytes("preview failure")
+        );
+
+        vm.expectRevert(PREVIEW_REVERTED);
+        adapter.availableLiquidity();
+    }
+
+    function testAvailableLiquidityZeroLimitPropagatesPreviewRevert() external {
+        seedPosition(100);
+        protocol.setMaxWithdrawalReferenceAmount(0);
+        vm.mockCallRevert(
+            address(protocol),
+            abi.encodeWithSelector(IUpshiftVaultV2.previewRedemption.selector, 100, true),
+            bytes("preview failure")
+        );
+
+        vm.expectRevert(PREVIEW_REVERTED);
+        adapter.availableLiquidity();
+    }
+
+    function testAvailableLiquidityPausedWithValidPositionReturnsDirectOnly() external {
+        asset.mint(address(adapter), 19);
+        seedPosition(100);
+        protocol.setPaused(true);
+        vm.expectCall(
+            address(protocol), abi.encodePacked(IUpshiftVaultV2.previewRedemption.selector), 1
+        );
+
+        assertEq(adapter.availableLiquidity(), 19);
+    }
+
+    function testAvailableLiquidityZeroLimitWithValidPositionReturnsDirectOnly() external {
+        asset.mint(address(adapter), 23);
+        seedPosition(100);
+        protocol.setMaxWithdrawalReferenceAmount(0);
+        vm.expectCall(
+            address(protocol), abi.encodePacked(IUpshiftVaultV2.previewRedemption.selector), 1
+        );
+
+        assertEq(adapter.availableLiquidity(), 23);
+    }
+
+    function testAvailableLiquidityPausedWithZeroSharesSkipsPositionPreview() external {
+        asset.mint(address(adapter), 29);
+        protocol.setPaused(true);
+        vm.expectCall(
+            address(protocol), abi.encodePacked(IUpshiftVaultV2.previewRedemption.selector), 0
+        );
+
+        assertEq(adapter.availableLiquidity(), 29);
+    }
+
+    function testAvailableLiquidityZeroLimitWithZeroSharesSkipsPositionPreview() external {
+        asset.mint(address(adapter), 31);
+        protocol.setMaxWithdrawalReferenceAmount(0);
+        vm.expectCall(
+            address(protocol), abi.encodePacked(IUpshiftVaultV2.previewRedemption.selector), 0
+        );
+
+        assertEq(adapter.availableLiquidity(), 31);
     }
 
     function testFullPositionWithinLimitFastPath() external {
@@ -88,11 +183,11 @@ contract UpshiftAdapterV2LiquidityTest is Test {
         adapter.availableLiquidity();
     }
 
-    function testPausedMakesNoPreviewCall() external {
+    function testPausedNonzeroPositionMakesOneValidationPreviewCall() external {
         seedPosition(10_000);
         protocol.setPaused(true);
         vm.expectCall(
-            address(protocol), abi.encodePacked(IUpshiftVaultV2.previewRedemption.selector), 0
+            address(protocol), abi.encodePacked(IUpshiftVaultV2.previewRedemption.selector), 1
         );
         adapter.availableLiquidity();
     }

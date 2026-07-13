@@ -141,12 +141,13 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, IStrategyRecoveryV2, Reentrancy
         uint256 direct = _asset.balanceOf(address(this));
         uint256 shares = _lpToken.balanceOf(address(this));
         if (shares == 0) return direct;
+
+        // Probe 1 validates every nonzero position before liquidity shortcuts.
+        (uint256 fullGross, uint256 fullNet) = _positionPreview(shares);
         if (_protocol.withdrawalsPaused()) return direct;
         uint256 limit = _protocol.maxWithdrawalAmount();
         if (limit == 0) return direct;
 
-        // Probe 1: full-position fast path.
-        (uint256 fullGross, uint256 fullNet) = _positionPreview(shares);
         if (fullGross <= limit && fullNet <= limit) {
             return direct + fullNet;
         }
