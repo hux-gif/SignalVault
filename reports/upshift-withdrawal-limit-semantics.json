@@ -1,0 +1,424 @@
+{
+  "status": "unverified_conservative",
+  "network": {
+    "classification": "OBSERVED",
+    "name": "coston2",
+    "chainId": 114,
+    "rpcEndpointLabel": "Flare public Coston2 RPC"
+  },
+  "block": {
+    "classification": "OBSERVED",
+    "number": "32788892",
+    "hash": "0x0297ccddda16187a4f5d89236c67c222591a99297c890ca03e0e578307d9f3ac",
+    "timestamp": "1783908571",
+    "timestampUtc": "2026-07-13T02:09:31.000Z"
+  },
+  "contracts": {
+    "fxrp": {
+      "address": "0x0b6A3645c240605887a5532109323A3E12273dc7",
+      "bytes": 177,
+      "runtimeHash": "0x2a345fa347d8d046bfd19e17318727830da91dea31a3e223c0eb0af248d446f0"
+    },
+    "vault": {
+      "address": "0x24c1a47cD5e8473b64EAB2a94515a196E10C7C81",
+      "bytes": 1106,
+      "runtimeHash": "0x614c1e9f7d63a7c671b0ed5b3b686cb706a3c515e05204c8c39d573944cdab82"
+    },
+    "lpToken": {
+      "address": "0xe084F7328DDaB082a139b880782dCC424d20a1DB",
+      "bytes": 2550,
+      "runtimeHash": "0x4bb8e323ed9e20999e23689f63df8e30936ace906060c8481c2ddb381b2999ce"
+    },
+    "implementation": {
+      "address": "0x94c1851B1631769147B62f8370E851682361CEe2",
+      "slot": "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+      "rawSlotValue": "0x00000000000000000000000094c1851b1631769147b62f8370e851682361cee2",
+      "bytes": 24294,
+      "runtimeHash": "0x150e0f0e72905b3b542f8c0d29e711e1c856ce4dc91d8a0bd685deb445de3fe4"
+    }
+  },
+  "bindings": {
+    "classification": "OBSERVED",
+    "reportedAsset": "0x0b6A3645c240605887a5532109323A3E12273dc7",
+    "expectedAsset": "0x0b6A3645c240605887a5532109323A3E12273dc7",
+    "reportedLpToken": "0xe084F7328DDaB082a139b880782dCC424d20a1DB",
+    "expectedLpToken": "0xe084F7328DDaB082a139b880782dCC424d20a1DB",
+    "vaultDefinesAssetAndLpRelationship": true
+  },
+  "tokens": {
+    "fxrp": {
+      "name": "FXRP",
+      "symbol": "FTestXRP",
+      "decimals": 6
+    },
+    "lpToken": {
+      "name": "Vault LP FXRP",
+      "symbol": "vFXRP",
+      "decimals": 6,
+      "totalSupply": "24920176"
+    },
+    "vaultFxrpBalanceContextOnly": "25007563",
+    "vaultBalanceIsNotNav": true
+  },
+  "statusAtBlock": {
+    "classification": "OBSERVED",
+    "withdrawalsPaused": false,
+    "maxWithdrawalAmount": "10000000000",
+    "rawInstantRedemptionFee": "50"
+  },
+  "fee": {
+    "classification": "INFERRED",
+    "raw": "50",
+    "denominatorUsedForComparisonOnly": "10000",
+    "previewSamplesWithinOneBpsOfRaw": true,
+    "statement": "All probes support the live raw fee within integer-flooring tolerance."
+  },
+  "depositPreviews": [
+    {
+      "classification": "DERIVED",
+      "assets": "1000",
+      "expectedShares": "996",
+      "referenceAmount": "1000",
+      "immediateGross": "999",
+      "immediateNet": "995",
+      "referenceEqualsImmediateNet": false,
+      "sharesEqualAssets": false
+    },
+    {
+      "classification": "DERIVED",
+      "assets": "100000",
+      "expectedShares": "99650",
+      "referenceAmount": "100000",
+      "immediateGross": "99999",
+      "immediateNet": "99500",
+      "referenceEqualsImmediateNet": false,
+      "sharesEqualAssets": false
+    },
+    {
+      "classification": "DERIVED",
+      "assets": "1000000",
+      "expectedShares": "996505",
+      "referenceAmount": "1000000",
+      "immediateGross": "999999",
+      "immediateNet": "995000",
+      "referenceEqualsImmediateNet": false,
+      "sharesEqualAssets": false
+    }
+  ],
+  "redemptionPreviews": [
+    {
+      "classification": "DERIVED",
+      "shares": "1000",
+      "gross": "1003",
+      "net": "998",
+      "feeAmount": "5",
+      "effectiveFeeBps": "49",
+      "withinConservativeLimit": true
+    },
+    {
+      "classification": "DERIVED",
+      "shares": "24920",
+      "gross": "25007",
+      "net": "24882",
+      "feeAmount": "125",
+      "effectiveFeeBps": "49",
+      "withinConservativeLimit": true
+    },
+    {
+      "classification": "DERIVED",
+      "shares": "24920176",
+      "gross": "25007563",
+      "net": "24882526",
+      "feeAmount": "125037",
+      "effectiveFeeBps": "49",
+      "withinConservativeLimit": true
+    }
+  ],
+  "withdrawalLimit": {
+    "observedLimit": "10000000000",
+    "candidateSemantics": "UNRESOLVED",
+    "evidenceTier": "TIER_1_GETTER_AND_PREVIEW_PLUS_PROXY_BINDING",
+    "conclusion": "UNRESOLVED",
+    "confidence": "LOW",
+    "sourceOrBytecodeComparisonProven": false,
+    "executionSimulationPerformed": false,
+    "tierOneSamplesAllWithinDualLimit": true,
+    "unresolvedQuestions": [
+      "The deployed implementation comparison variable has not been proven from matched verified source or bytecode control flow.",
+      "No non-broadcast execution simulation with a real eligible LP holder was performed.",
+      "The live limit is above the previewed value of the sampled real LP supply, so gross/net boundary cases were not constructible from these probes."
+    ]
+  },
+  "sourceInspection": {
+    "classification": "OBSERVED_OFFCHAIN",
+    "sources": {
+      "instantRedeemGuide": "https://dev.flare.network/fxrp/upshift/instant-redeem",
+      "requestRedeemGuide": "https://dev.flare.network/fxrp/upshift/request-redeem",
+      "interfaceAtReviewedCommit": "https://github.com/flare-foundation/flare-hardhat-starter/blob/1ce4e8cafb9159a8944a2c85dc2bd3614e4ab7bb/contracts/upshift/ITokenizedVault.sol"
+    },
+    "instantRedeemGuideObservation": "The official instant-redeem example previews gross/net output and measures balances, but does not read or define maxWithdrawalAmount execution semantics.",
+    "requestRedeemGuideObservation": "The delayed request-redeem example compares sharesToRedeem with maxWithdrawalAmount; this different path does not prove the instantRedeem comparison variable.",
+    "deployedBytecodeMatchedToPublishedSource": false,
+    "semanticProofObtained": false
+  },
+  "adapterAssessment": {
+    "classification": "INSUFFICIENT_EVIDENCE",
+    "currentRule": "previewGross <= limit AND previewNet <= limit",
+    "mayOverestimate": "UNRESOLVED when the protocol uses an unknown internal reference value",
+    "knownEffect": "The dual check does not relax liquidity and may underestimate it under gross-only or net-only semantics.",
+    "recommendation": "Keep the conservative dual check unchanged until higher-tier evidence is reviewed."
+  },
+  "calls": [
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0x24c1a47cD5e8473b64EAB2a94515a196E10C7C81",
+      "blockNumber": "32788892",
+      "functionSignature": "asset()",
+      "calldata": "0x38d52e0f",
+      "rawReturndata": "0x0000000000000000000000000b6a3645c240605887a5532109323a3e12273dc7",
+      "decoded": "0x0b6A3645c240605887a5532109323A3E12273dc7"
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0x24c1a47cD5e8473b64EAB2a94515a196E10C7C81",
+      "blockNumber": "32788892",
+      "functionSignature": "lpTokenAddress()",
+      "calldata": "0xf5ae497a",
+      "rawReturndata": "0x000000000000000000000000e084f7328ddab082a139b880782dcc424d20a1db",
+      "decoded": "0xe084F7328DDaB082a139b880782dCC424d20a1DB"
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0x24c1a47cD5e8473b64EAB2a94515a196E10C7C81",
+      "blockNumber": "32788892",
+      "functionSignature": "withdrawalsPaused()",
+      "calldata": "0xe9f2838e",
+      "rawReturndata": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "decoded": false
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0x24c1a47cD5e8473b64EAB2a94515a196E10C7C81",
+      "blockNumber": "32788892",
+      "functionSignature": "maxWithdrawalAmount()",
+      "calldata": "0xe976d431",
+      "rawReturndata": "0x00000000000000000000000000000000000000000000000000000002540be400",
+      "decoded": "10000000000"
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0x24c1a47cD5e8473b64EAB2a94515a196E10C7C81",
+      "blockNumber": "32788892",
+      "functionSignature": "instantRedemptionFee()",
+      "calldata": "0x820fe4be",
+      "rawReturndata": "0x0000000000000000000000000000000000000000000000000000000000000032",
+      "decoded": "50"
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0x0b6A3645c240605887a5532109323A3E12273dc7",
+      "blockNumber": "32788892",
+      "functionSignature": "decimals()",
+      "calldata": "0x313ce567",
+      "rawReturndata": "0x0000000000000000000000000000000000000000000000000000000000000006",
+      "decoded": 6
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0x0b6A3645c240605887a5532109323A3E12273dc7",
+      "blockNumber": "32788892",
+      "functionSignature": "name()",
+      "calldata": "0x06fdde03",
+      "rawReturndata": "0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000044658525000000000000000000000000000000000000000000000000000000000",
+      "decoded": "FXRP"
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0x0b6A3645c240605887a5532109323A3E12273dc7",
+      "blockNumber": "32788892",
+      "functionSignature": "symbol()",
+      "calldata": "0x95d89b41",
+      "rawReturndata": "0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000084654657374585250000000000000000000000000000000000000000000000000",
+      "decoded": "FTestXRP"
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0xe084F7328DDaB082a139b880782dCC424d20a1DB",
+      "blockNumber": "32788892",
+      "functionSignature": "decimals()",
+      "calldata": "0x313ce567",
+      "rawReturndata": "0x0000000000000000000000000000000000000000000000000000000000000006",
+      "decoded": 6
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0xe084F7328DDaB082a139b880782dCC424d20a1DB",
+      "blockNumber": "32788892",
+      "functionSignature": "name()",
+      "calldata": "0x06fdde03",
+      "rawReturndata": "0x0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000d5661756c74204c50204658525000000000000000000000000000000000000000",
+      "decoded": "Vault LP FXRP"
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0xe084F7328DDaB082a139b880782dCC424d20a1DB",
+      "blockNumber": "32788892",
+      "functionSignature": "symbol()",
+      "calldata": "0x95d89b41",
+      "rawReturndata": "0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000057646585250000000000000000000000000000000000000000000000000000000",
+      "decoded": "vFXRP"
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0xe084F7328DDaB082a139b880782dCC424d20a1DB",
+      "blockNumber": "32788892",
+      "functionSignature": "totalSupply()",
+      "calldata": "0x18160ddd",
+      "rawReturndata": "0x00000000000000000000000000000000000000000000000000000000017c4070",
+      "decoded": "24920176"
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0x0b6A3645c240605887a5532109323A3E12273dc7",
+      "blockNumber": "32788892",
+      "functionSignature": "balanceOf(address)",
+      "calldata": "0x70a0823100000000000000000000000024c1a47cd5e8473b64eab2a94515a196e10c7c81",
+      "rawReturndata": "0x00000000000000000000000000000000000000000000000000000000017d95cb",
+      "decoded": "25007563"
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0x24c1a47cD5e8473b64EAB2a94515a196E10C7C81",
+      "blockNumber": "32788892",
+      "functionSignature": "previewRedemption(uint256,bool)",
+      "calldata": "0xb4db4be800000000000000000000000000000000000000000000000000000000000003e80000000000000000000000000000000000000000000000000000000000000001",
+      "rawReturndata": "0x00000000000000000000000000000000000000000000000000000000000003eb00000000000000000000000000000000000000000000000000000000000003e6",
+      "decoded": [
+        "1003",
+        "998"
+      ]
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0x24c1a47cD5e8473b64EAB2a94515a196E10C7C81",
+      "blockNumber": "32788892",
+      "functionSignature": "previewRedemption(uint256,bool)",
+      "calldata": "0xb4db4be800000000000000000000000000000000000000000000000000000000000061580000000000000000000000000000000000000000000000000000000000000001",
+      "rawReturndata": "0x00000000000000000000000000000000000000000000000000000000000061af0000000000000000000000000000000000000000000000000000000000006132",
+      "decoded": [
+        "25007",
+        "24882"
+      ]
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0x24c1a47cD5e8473b64EAB2a94515a196E10C7C81",
+      "blockNumber": "32788892",
+      "functionSignature": "previewRedemption(uint256,bool)",
+      "calldata": "0xb4db4be800000000000000000000000000000000000000000000000000000000017c40700000000000000000000000000000000000000000000000000000000000000001",
+      "rawReturndata": "0x00000000000000000000000000000000000000000000000000000000017d95cb00000000000000000000000000000000000000000000000000000000017bad5e",
+      "decoded": [
+        "25007563",
+        "24882526"
+      ]
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0x24c1a47cD5e8473b64EAB2a94515a196E10C7C81",
+      "blockNumber": "32788892",
+      "functionSignature": "previewDeposit(address,uint256)",
+      "calldata": "0xb8f82b260000000000000000000000000b6a3645c240605887a5532109323a3e12273dc700000000000000000000000000000000000000000000000000000000000003e8",
+      "rawReturndata": "0x00000000000000000000000000000000000000000000000000000000000003e400000000000000000000000000000000000000000000000000000000000003e8",
+      "decoded": [
+        "996",
+        "1000"
+      ]
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0x24c1a47cD5e8473b64EAB2a94515a196E10C7C81",
+      "blockNumber": "32788892",
+      "functionSignature": "previewRedemption(uint256,bool)",
+      "calldata": "0xb4db4be800000000000000000000000000000000000000000000000000000000000003e40000000000000000000000000000000000000000000000000000000000000001",
+      "rawReturndata": "0x00000000000000000000000000000000000000000000000000000000000003e700000000000000000000000000000000000000000000000000000000000003e3",
+      "decoded": [
+        "999",
+        "995"
+      ]
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0x24c1a47cD5e8473b64EAB2a94515a196E10C7C81",
+      "blockNumber": "32788892",
+      "functionSignature": "previewDeposit(address,uint256)",
+      "calldata": "0xb8f82b260000000000000000000000000b6a3645c240605887a5532109323a3e12273dc700000000000000000000000000000000000000000000000000000000000186a0",
+      "rawReturndata": "0x000000000000000000000000000000000000000000000000000000000001854200000000000000000000000000000000000000000000000000000000000186a0",
+      "decoded": [
+        "99650",
+        "100000"
+      ]
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0x24c1a47cD5e8473b64EAB2a94515a196E10C7C81",
+      "blockNumber": "32788892",
+      "functionSignature": "previewRedemption(uint256,bool)",
+      "calldata": "0xb4db4be800000000000000000000000000000000000000000000000000000000000185420000000000000000000000000000000000000000000000000000000000000001",
+      "rawReturndata": "0x000000000000000000000000000000000000000000000000000000000001869f00000000000000000000000000000000000000000000000000000000000184ac",
+      "decoded": [
+        "99999",
+        "99500"
+      ]
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0x24c1a47cD5e8473b64EAB2a94515a196E10C7C81",
+      "blockNumber": "32788892",
+      "functionSignature": "previewDeposit(address,uint256)",
+      "calldata": "0xb8f82b260000000000000000000000000b6a3645c240605887a5532109323a3e12273dc700000000000000000000000000000000000000000000000000000000000f4240",
+      "rawReturndata": "0x00000000000000000000000000000000000000000000000000000000000f349900000000000000000000000000000000000000000000000000000000000f4240",
+      "decoded": [
+        "996505",
+        "1000000"
+      ]
+    },
+    {
+      "classification": "OBSERVED",
+      "rpcMethod": "eth_call",
+      "target": "0x24c1a47cD5e8473b64EAB2a94515a196E10C7C81",
+      "blockNumber": "32788892",
+      "functionSignature": "previewRedemption(uint256,bool)",
+      "calldata": "0xb4db4be800000000000000000000000000000000000000000000000000000000000f34990000000000000000000000000000000000000000000000000000000000000001",
+      "rawReturndata": "0x00000000000000000000000000000000000000000000000000000000000f423f00000000000000000000000000000000000000000000000000000000000f2eb8",
+      "decoded": [
+        "999999",
+        "995000"
+      ]
+    }
+  ],
+  "writeTransactionsBroadcast": false,
+  "privateKeyLoaded": false,
+  "walletClientCreated": false,
+  "evidenceGeneratedAtUtc": "2026-07-13T02:19:01.658Z"
+}
