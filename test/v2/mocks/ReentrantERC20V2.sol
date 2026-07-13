@@ -46,4 +46,9 @@ contract ReentrantERC20V2 is ERC20 {
         _runCallbackOnce();
         return super.transferFrom(owner, to, amount);
     }
+
+    function transfer(address to, uint256 amount) public override returns (bool) {
+        _runCallbackOnce();
+        return super.transfer(to, amount);
+    }
 }

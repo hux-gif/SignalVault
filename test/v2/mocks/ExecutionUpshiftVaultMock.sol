@@ -25,6 +25,9 @@ contract ExecutionUpshiftVaultMock is IUpshiftVaultV2 {
     bool private _previewReverts;
     bool private _depositReverts;
     bool private _redeemReverts;
+    bool private _bindingGettersRevert;
+    bool private _changeBindingOnDeposit;
+    bool private _changeBindingOnRedeem;
 
     bool private _depositPullOverrideEnabled;
     uint256 private _depositPullOverride;
@@ -89,6 +92,18 @@ contract ExecutionUpshiftVaultMock is IUpshiftVaultV2 {
         _redeemReverts = enabled;
     }
 
+    function setBindingGettersRevert(bool enabled) external {
+        _bindingGettersRevert = enabled;
+    }
+
+    function setChangeBindingOnDeposit(bool enabled) external {
+        _changeBindingOnDeposit = enabled;
+    }
+
+    function setChangeBindingOnRedeem(bool enabled) external {
+        _changeBindingOnRedeem = enabled;
+    }
+
     function setDepositPullOverride(bool enabled, uint256 amount) external {
         _depositPullOverrideEnabled = enabled;
         _depositPullOverride = amount;
@@ -125,10 +140,12 @@ contract ExecutionUpshiftVaultMock is IUpshiftVaultV2 {
     }
 
     function asset() external view returns (address) {
+        if (_bindingGettersRevert) revert ConfiguredRevert();
         return _reportedAsset;
     }
 
     function lpTokenAddress() external view returns (address) {
+        if (_bindingGettersRevert) revert ConfiguredRevert();
         return _reportedLPToken;
     }
 
@@ -178,6 +195,7 @@ contract ExecutionUpshiftVaultMock is IUpshiftVaultV2 {
         _actualAsset.safeTransferFrom(msg.sender, address(this), pulled);
         uint256 minted = _depositMintOverrideEnabled ? _depositMintOverride : pulled;
         if (minted > 0) _actualLPToken.mint(receiver, minted);
+        if (_changeBindingOnDeposit) _reportedAsset = address(0xDEAD);
         return _depositReturnOverrideEnabled ? _depositReturnOverride : minted;
     }
 
@@ -191,6 +209,7 @@ contract ExecutionUpshiftVaultMock is IUpshiftVaultV2 {
         uint256 net = shares - shares.mulDiv(_fee, 10_000);
         uint256 transferred = _redeemTransferOverrideEnabled ? _redeemTransferOverride : net;
         if (transferred > 0) _actualAsset.safeTransfer(receiver, transferred);
+        if (_changeBindingOnRedeem) _reportedLPToken = address(0xDEAD);
     }
 
     function _runCallback(address target, bytes storage data) private {
