@@ -46,6 +46,7 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, IStrategyRecoveryV2, Reentrancy
     error ProtocolPaused();
     error WithdrawalLimitExceeded();
     error ZeroAssetsReceived();
+    error AssetDeltaMismatch();
     error ZeroSharesReceived();
     error ShareDeltaMismatch();
     error RouterDeltaMismatch();
@@ -263,6 +264,7 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, IStrategyRecoveryV2, Reentrancy
         uint256 adapterAssetsAfter = _asset.balanceOf(address(this));
         if (adapterAssetsAfter <= adapterAssetsBefore) revert ZeroAssetsReceived();
         uint256 actualAssetsReceived = adapterAssetsAfter - adapterAssetsBefore;
+        if (actualAssetsReceived != assets) revert AssetDeltaMismatch();
 
         (uint256 previewedShares,) = _previewDeposit(actualAssetsReceived);
         uint256 rawFee = _protocol.instantRedemptionFee();

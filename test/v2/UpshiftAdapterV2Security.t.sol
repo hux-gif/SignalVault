@@ -22,6 +22,7 @@ contract UpshiftAdapterV2SecurityTest is Test {
     bytes4 internal constant ZERO_ADDRESS = bytes4(keccak256("ZeroAddress()"));
     bytes4 internal constant ZERO_POSITION = bytes4(keccak256("ZeroPosition()"));
     bytes4 internal constant POSITION_RECOVERED = bytes4(keccak256("PositionRecovered()"));
+    bytes4 internal constant ASSET_DELTA_MISMATCH = bytes4(keccak256("AssetDeltaMismatch()"));
 
     event EmergencyPositionRecovered(address indexed token, uint256 amount, address receiver);
 
@@ -118,6 +119,38 @@ contract UpshiftAdapterV2SecurityTest is Test {
         adapter.redeemAll(0);
         vm.expectRevert(POSITION_RECOVERED);
         adapter.totalAssets();
+        vm.expectRevert(POSITION_RECOVERED);
+        adapter.grossAssets();
+        vm.expectRevert(POSITION_RECOVERED);
+        adapter.availableLiquidity();
+        vm.expectRevert(POSITION_RECOVERED);
+        adapter.protocolStatus();
+        vm.expectRevert(POSITION_RECOVERED);
+        adapter.previewDeposit(1);
+        vm.expectRevert(POSITION_RECOVERED);
+        adapter.previewRedeem(1);
+    }
+
+    function testDepositRejectsUnderlyingUnderTransferAtomically() external {
+        SkimmingERC20V2 skimAsset = new SkimmingERC20V2();
+        MockLPTokenV2 skimLP = new MockLPTokenV2("SkimLP", "SLP", 18);
+        ExecutionUpshiftVaultMock skimProtocol =
+            new ExecutionUpshiftVaultMock(address(skimAsset), address(skimLP));
+        UpshiftAdapterV2 skimAdapter = new UpshiftAdapterV2(
+            IERC20(address(skimAsset)), address(this), skimProtocol, IERC20(address(skimLP))
+        );
+        skimAsset.mint(address(this), 1_000);
+        skimAsset.approve(address(skimAdapter), 1_000);
+        skimAsset.setTransferFromShortfall(address(this), 1);
+
+        vm.expectRevert(ASSET_DELTA_MISMATCH);
+        skimAdapter.deposit(1_000, 1);
+
+        assertEq(skimAsset.balanceOf(address(this)), 1_000);
+        assertEq(skimAsset.balanceOf(address(skimAdapter)), 0);
+        assertEq(skimAsset.balanceOf(address(skimProtocol)), 0);
+        assertEq(skimLP.balanceOf(address(skimAdapter)), 0);
+        assertEq(skimAsset.allowance(address(skimAdapter), address(skimProtocol)), 0);
     }
 
     function testSecondRecoveryIsPermanentlyDisabled() external {
@@ -188,6 +221,7 @@ contract UpshiftAdapterV2SecurityTest is Test {
 
     UpshiftAdapterV2 internal callbackAdapter;
     IStrategyRecoveryV2 internal callbackRecovery;
+    ExecutionUpshiftVaultMock internal callbackProtocol;
 
     function reenterRecovery() external {
         callbackRecovery.recoverPosition(receiver);
@@ -195,6 +229,52 @@ contract UpshiftAdapterV2SecurityTest is Test {
 
     function reenterWithdrawLiquid() external {
         callbackAdapter.withdrawLiquid(1);
+    }
+
+    function reenterRedeem() external {
+        callbackProtocol.armRedeemCallback(address(0), "");
+        callbackAdapter.redeem(1, 0);
+    }
+
+    function reenterRedeemAll() external {
+        callbackProtocol.armRedeemCallback(address(0), "");
+        callbackAdapter.redeemAll(0);
+    }
+
+    function reenterWithdrawLiquidAfterDisarm() external {
+        callbackProtocol.armRedeemCallback(address(0), "");
+        callbackAdapter.withdrawLiquid(1);
+    }
+
+    function _setUpProtocolCallbackAdapter(uint256 shares, uint256 directAssets) internal {
+        MockLPTokenV2 localLP = new MockLPTokenV2("CallbackLP", "CLP", 18);
+        callbackProtocol = new ExecutionUpshiftVaultMock(address(asset), address(localLP));
+        callbackAdapter = new UpshiftAdapterV2(
+            IERC20(address(asset)), address(this), callbackProtocol, IERC20(address(localLP))
+        );
+        localLP.mint(address(callbackAdapter), shares);
+        asset.mint(address(callbackProtocol), shares);
+        if (directAssets > 0) asset.mint(address(callbackAdapter), directAssets);
+    }
+
+    function testRedeemCannotReenterRedeemOrRedeemAll() external {
+        _setUpProtocolCallbackAdapter(100, 0);
+        callbackProtocol.armRedeemCallback(address(this), abi.encodeCall(this.reenterRedeem, ()));
+        vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
+        callbackAdapter.redeem(100, 0);
+
+        callbackProtocol.armRedeemCallback(address(this), abi.encodeCall(this.reenterRedeemAll, ()));
+        vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
+        callbackAdapter.redeem(100, 0);
+    }
+
+    function testRedeemAllCannotReenterWithdrawLiquid() external {
+        _setUpProtocolCallbackAdapter(100, 1);
+        callbackProtocol.armRedeemCallback(
+            address(this), abi.encodeCall(this.reenterWithdrawLiquidAfterDisarm, ())
+        );
+        vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
+        callbackAdapter.redeemAll(0);
     }
 
     function testRecoveryCannotReenterRecoveryOrNormalOperation() external {
@@ -264,11 +344,18 @@ contract UpshiftAdapterV2SecurityTest is Test {
         assertFalse(ok);
     }
 
-    function testPlanNamedMaliciousAdapterMockCannotMoveAssets() external {
+    function testPlanNamedMaliciousAdapterOverReportsWithoutBalanceDelta() external {
         MaliciousStrategyAdapterV2 malicious =
             new MaliciousStrategyAdapterV2(address(asset), address(lp));
         malicious.setReportedValue(1_000);
+        asset.mint(address(this), 10);
+        asset.approve(address(malicious), 10);
+
+        uint256 callerBefore = asset.balanceOf(address(this));
+        uint256 adapterBefore = asset.balanceOf(address(malicious));
         assertEq(malicious.deposit(1, 0), 1_000);
-        assertEq(asset.balanceOf(address(malicious)), 0);
+        assertEq(asset.balanceOf(address(this)), callerBefore);
+        assertEq(asset.balanceOf(address(malicious)), adapterBefore);
+        assertEq(malicious.totalAssets(), 1_000);
     }
 }
