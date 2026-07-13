@@ -394,9 +394,7 @@ contract UpshiftAdapterV2AdversarialExecutionTest is Test {
         ) = _deployAdversarialDebitAdapter();
         hostileAsset.mint(address(hostileAdapter), 200);
         hostileAsset.configureDebit(
-            address(hostileAdapter),
-            AdversarialDebitERC20V2.DebitMode.ReceiverOverCredit,
-            1
+            address(hostileAdapter), AdversarialDebitERC20V2.DebitMode.ReceiverOverCredit, 1
         );
 
         vm.expectRevert(UpshiftAdapterV2.RouterDeltaMismatch.selector);
@@ -422,8 +420,7 @@ contract UpshiftAdapterV2AdversarialExecutionTest is Test {
     {
         hostileAsset = new AdversarialDebitERC20V2();
         hostileLP = new MockLPTokenV2("Hostile LP", "HLP", 18);
-        hostileProtocol =
-            new ExecutionUpshiftVaultMock(address(hostileAsset), address(hostileLP));
+        hostileProtocol = new ExecutionUpshiftVaultMock(address(hostileAsset), address(hostileLP));
         hostileAdapter = new UpshiftAdapterV2(
             IERC20(address(hostileAsset)),
             address(this),
