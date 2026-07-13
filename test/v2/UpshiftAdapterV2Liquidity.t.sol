@@ -12,6 +12,7 @@ import {MockLPTokenV2} from "./mocks/MockLPTokenV2.sol";
 /// @notice Tests for UpshiftAdapterV2 availableLiquidity, conservative dual-limit
 /// search, 64-call bound, and boundary conditions.
 contract UpshiftAdapterV2LiquidityTest is Test {
+    bytes4 internal constant PREVIEW_ZERO_NET = bytes4(keccak256("PreviewZeroNet()"));
     MockLPTokenV2 internal asset;
     MockLPTokenV2 internal lp;
     FeeAwareUpshiftVaultMock internal protocol;
@@ -61,6 +62,14 @@ contract UpshiftAdapterV2LiquidityTest is Test {
         // Default mock maxWithdrawalAmount is type(uint256).max.
         (, uint256 expectedNet) = protocol.previewRedemption(10_000, true);
         assertEq(adapter.availableLiquidity(), 100 + expectedNet);
+    }
+
+    function testAvailableLiquidityRejectsZeroNetForNonzeroPosition() external {
+        asset.mint(address(adapter), 7);
+        seedPosition(100);
+        protocol.setInstantFee(10_000);
+        vm.expectRevert(PREVIEW_ZERO_NET);
+        adapter.availableLiquidity();
     }
 
     function testFullPositionFastPathMakesOnePreviewCall() external {

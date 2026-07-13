@@ -171,6 +171,15 @@ contract UpshiftAdapterV2SecurityTest is Test {
         assertEq(lp.balanceOf(receiver), 100);
     }
 
+    function testRecoveryRemainsAvailableWhenPositionNetIsZero() external {
+        lp.mint(address(adapter), 100);
+        protocol.setFee(10_000);
+
+        assertEq(recovery.recoverPosition(receiver), 100);
+        assertEq(lp.balanceOf(receiver), 100);
+        assertEq(protocol.redeemCallCount(), 0);
+    }
+
     function testRecoveryDoesNotSweepUnknownTokenOrUnderlying() external {
         MockLPTokenV2 unknown = new MockLPTokenV2("Unknown", "UNK", 18);
         asset.mint(address(adapter), 7);

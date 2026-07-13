@@ -35,6 +35,7 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, IStrategyRecoveryV2, Reentrancy
     error PreviewZeroShares();
     error PreviewZeroReferenceAmount();
     error PreviewZeroGross();
+    error PreviewZeroNet();
     error PreviewNetExceedsGross();
     error PreviewNetExceedsReference();
     error PreviewReverted();
@@ -418,6 +419,7 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, IStrategyRecoveryV2, Reentrancy
     function _positionPreview(uint256 shares) internal view returns (uint256 gross, uint256 net) {
         try _protocol.previewRedemption(shares, true) returns (uint256 g, uint256 n) {
             if (g == 0) revert PreviewZeroGross();
+            if (n == 0) revert PreviewZeroNet();
             if (n > g) revert PreviewNetExceedsGross();
             return (g, n);
         } catch {

@@ -13,6 +13,7 @@ import {MockLPTokenV2} from "./mocks/MockLPTokenV2.sol";
 /// @notice Tests for UpshiftAdapterV2 accounting views, composed previews, protocol
 /// status, binding verification, and malformed-preview fail-closed behavior.
 contract UpshiftAdapterV2AccountingTest is Test {
+    bytes4 internal constant PREVIEW_ZERO_NET = bytes4(keccak256("PreviewZeroNet()"));
     MockLPTokenV2 internal asset;
     MockLPTokenV2 internal lp;
     FeeAwareUpshiftVaultMock internal protocol;
@@ -165,15 +166,20 @@ contract UpshiftAdapterV2AccountingTest is Test {
         assertEq(adapter.grossAssets(), grossAfter);
     }
 
-    function testFullFeeGivesZeroNetProtocolValueButPreservesDirect() external {
+    function testTotalAssetsRejectsZeroNetForNonzeroPositionDespiteDirectUnderlying() external {
         asset.mint(address(adapter), 200);
         seedPosition(10_000);
         protocol.setInstantFee(10_000);
-        (uint256 gross, uint256 net) = adapter.previewRedeem(10_000);
-        assertGt(gross, 0);
-        assertEq(net, 0);
-        assertEq(adapter.totalAssets(), 200 + 0);
-        assertEq(adapter.grossAssets(), 200 + gross);
+        vm.expectRevert(PREVIEW_ZERO_NET);
+        adapter.totalAssets();
+    }
+
+    function testGrossAssetsRejectsZeroNetForNonzeroPositionDespiteDirectUnderlying() external {
+        asset.mint(address(adapter), 200);
+        seedPosition(10_000);
+        protocol.setInstantFee(10_000);
+        vm.expectRevert(PREVIEW_ZERO_NET);
+        adapter.grossAssets();
     }
 
     // ============ Composed previewDeposit ============
@@ -225,6 +231,12 @@ contract UpshiftAdapterV2AccountingTest is Test {
         adapter.previewDeposit(100);
     }
 
+    function testPreviewDepositRejectsZeroNetForNonzeroExpectedShares() external {
+        protocol.setInstantFee(10_000);
+        vm.expectRevert(PREVIEW_ZERO_NET);
+        adapter.previewDeposit(100);
+    }
+
     // ============ previewRedeem ============
 
     function testPreviewRedeemOneToOneWithProtocol() external {
@@ -253,11 +265,10 @@ contract UpshiftAdapterV2AccountingTest is Test {
         adapter.previewRedeem(500);
     }
 
-    function testPreviewRedeemAllowsZeroNetUnderFullFee() external {
+    function testPreviewRedeemRejectsZeroNetForNonzeroShares() external {
         protocol.setRedemptionPreviewOverride(500, true, 100, 0, 100);
-        (uint256 gross, uint256 net) = adapter.previewRedeem(500);
-        assertGt(gross, 0);
-        assertEq(net, 0);
+        vm.expectRevert(PREVIEW_ZERO_NET);
+        adapter.previewRedeem(500);
     }
 
     // ============ protocolStatus ============

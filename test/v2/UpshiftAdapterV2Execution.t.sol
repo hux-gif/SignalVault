@@ -22,6 +22,7 @@ contract UpshiftAdapterV2ExecutionTest is Test {
     bytes4 internal constant PROTOCOL_PAUSED = bytes4(keccak256("ProtocolPaused()"));
     bytes4 internal constant WITHDRAWAL_LIMIT_EXCEEDED =
         bytes4(keccak256("WithdrawalLimitExceeded()"));
+    bytes4 internal constant PREVIEW_ZERO_NET = bytes4(keccak256("PreviewZeroNet()"));
 
     MockLPTokenV2 internal asset;
     MockLPTokenV2 internal lp;
@@ -208,6 +209,15 @@ contract UpshiftAdapterV2ExecutionTest is Test {
         adapter.redeem(101, 0);
     }
 
+    function testRedeemRejectsZeroNetForNonzeroShares() external {
+        _seedPosition(100);
+        protocol.setInstantFee(10_000);
+        vm.expectRevert(PREVIEW_ZERO_NET);
+        adapter.redeem(100, 0);
+        assertEq(lp.balanceOf(address(adapter)), 100);
+        assertEq(asset.balanceOf(address(this)), 0);
+    }
+
     function testRedeemAllSweepsDirectUnderlyingAndFullPositionWithoutDust() external {
         asset.mint(address(adapter), 100);
         _seedPosition(10_000);
@@ -231,14 +241,15 @@ contract UpshiftAdapterV2ExecutionTest is Test {
         assertEq(lp.balanceOf(address(adapter)), 0);
     }
 
-    function testRedeemAllSupportsFullFeeWhenDirectUnderlyingExists() external {
+    function testRedeemAllRejectsZeroNetAndPreservesDirectUnderlying() external {
         protocol.setInstantFee(10_000);
         asset.mint(address(adapter), 7);
         _seedPosition(100);
 
-        assertEq(adapter.redeemAll(7), 7);
-        assertEq(asset.balanceOf(address(adapter)), 0);
-        assertEq(lp.balanceOf(address(adapter)), 0);
+        vm.expectRevert(PREVIEW_ZERO_NET);
+        adapter.redeemAll(0);
+        assertEq(asset.balanceOf(address(adapter)), 7);
+        assertEq(lp.balanceOf(address(adapter)), 100);
     }
 
     function testRedeemAllRejectsEmptyAdapter() external {
