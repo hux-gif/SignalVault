@@ -200,6 +200,13 @@ export function requireEvidenceBlock(block: EvidenceBlock): asserts block is {
   if (block.timestamp <= 0n) throw new Error("Evidence block timestamp is invalid");
 }
 
+export function evidenceTimestampUtc(timestamp: bigint): string {
+  if (timestamp <= 0n || timestamp > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new Error("Evidence block timestamp is outside the safe date range");
+  }
+  return new Date(Number(timestamp) * 1_000).toISOString();
+}
+
 export function assertConsistentBlock(
   expected: bigint,
   actual: bigint,
@@ -558,7 +565,7 @@ async function collectEvidence(): Promise<Record<string, unknown>> {
       number: evidenceBlock,
       hash: block.hash,
       timestamp: block.timestamp,
-      timestampUtc: new Date(Number(block.timestamp) * 1_000).toISOString(),
+      timestampUtc: evidenceTimestampUtc(block.timestamp),
     },
     contracts: codeEvidence,
     bindings: {
@@ -628,7 +635,7 @@ async function collectEvidence(): Promise<Record<string, unknown>> {
     writeTransactionsBroadcast: false,
     privateKeyLoaded: false,
     walletClientCreated: false,
-    evidenceGeneratedAtUtc: new Date().toISOString(),
+    evidenceGeneratedAtUtc: evidenceTimestampUtc(block.timestamp),
   };
 }
 

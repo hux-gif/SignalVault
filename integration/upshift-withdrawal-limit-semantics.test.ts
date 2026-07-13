@@ -6,6 +6,7 @@ import {
   assertReadOnlyCommand,
   decodeStrictBool,
   decodeStrictUint256,
+  evidenceTimestampUtc,
   isConservativelyWithinLimit,
   requireContractCode,
   requireEvidenceBlock,
@@ -111,6 +112,12 @@ describe("Upshift withdrawal-limit evidence validation", () => {
     expect(() =>
       requireEvidenceBlock({ number: 1n, hash: null, timestamp: 2n }),
     ).toThrow(/block hash/i);
+  });
+
+  it("derives the evidence timestamp from the pinned block", () => {
+    expect(evidenceTimestampUtc(1_783_908_571n)).toBe(
+      "2026-07-13T02:09:31.000Z",
+    );
   });
 
   it("rejects evidence assembled from inconsistent blocks", () => {
