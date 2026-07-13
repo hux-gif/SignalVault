@@ -91,6 +91,57 @@ export type DepositPreview = {
   referenceAmount: bigint;
 };
 
+const MAX_UINT256 = 2n ** 256n - 1n;
+
+function parseEvidenceBlock(value: string, source: string): bigint {
+  if (!/^[1-9][0-9]*$/.test(value)) {
+    throw new Error(`${source} evidence block must be a positive decimal integer`);
+  }
+  const parsed = BigInt(value);
+  if (parsed > MAX_UINT256) {
+    throw new Error(`${source} evidence block exceeds uint256`);
+  }
+  return parsed;
+}
+
+export function resolveEvidenceBlock(
+  args: readonly string[],
+  env: Readonly<Record<string, string | undefined>>,
+): bigint | undefined {
+  let cliValue: string | undefined;
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === undefined) throw new Error("Evidence argument is missing");
+    let candidate: string | undefined;
+    if (arg === "--block") {
+      candidate = args[index + 1];
+      index += 1;
+    } else if (arg.startsWith("--block=")) {
+      candidate = arg.slice("--block=".length);
+    } else {
+      throw new Error(`Unknown evidence argument: ${arg}`);
+    }
+    if (!candidate || cliValue !== undefined) {
+      throw new Error("CLI evidence block must be provided exactly once");
+    }
+    cliValue = candidate;
+  }
+
+  const environmentValue = env.UPSHIFT_EVIDENCE_BLOCK?.trim() || undefined;
+  const cliBlock = cliValue ? parseEvidenceBlock(cliValue, "CLI") : undefined;
+  const environmentBlock = environmentValue
+    ? parseEvidenceBlock(environmentValue, "Environment")
+    : undefined;
+  if (
+    cliBlock !== undefined &&
+    environmentBlock !== undefined &&
+    cliBlock !== environmentBlock
+  ) {
+    throw new Error("CLI and environment evidence blocks conflict");
+  }
+  return cliBlock ?? environmentBlock;
+}
+
 type RecordedCall = {
   classification: "OBSERVED";
   rpcMethod: "eth_call";
@@ -311,17 +362,16 @@ async function collectEvidence(): Promise<Record<string, unknown>> {
   const chainId = await withRpcBoundary("chain ID", () => client.getChainId());
   requireExpectedChain(chainId);
 
-  const latest = await withRpcBoundary("latest block", () =>
-    client.getBlock({ blockTag: "latest" }),
-  );
-  const requestedBlock = process.env.UPSHIFT_EVIDENCE_BLOCK
-    ? BigInt(process.env.UPSHIFT_EVIDENCE_BLOCK)
-    : latest.number;
-  const block = await withRpcBoundary("evidence block", () =>
-    client.getBlock({ blockNumber: requestedBlock }),
-  );
+  const requestedBlock = resolveEvidenceBlock(process.argv.slice(2), process.env);
+  const block = requestedBlock === undefined
+    ? await withRpcBoundary("latest evidence block", () => client.getBlock({ blockTag: "latest" }))
+    : await withRpcBoundary("pinned evidence block", () =>
+        client.getBlock({ blockNumber: requestedBlock }),
+      );
   requireEvidenceBlock(block);
-  assertConsistentBlock(requestedBlock, block.number, "evidence block");
+  if (requestedBlock !== undefined) {
+    assertConsistentBlock(requestedBlock, block.number, "evidence block");
+  }
   const evidenceBlock = block.number;
 
   const [fxrpCode, vaultCode, lpCode, implementationStorage] = await Promise.all([
@@ -630,6 +680,11 @@ async function collectEvidence(): Promise<Record<string, unknown>> {
       mayOverestimate: "UNRESOLVED when the protocol uses an unknown internal reference value",
       knownEffect: "The dual check does not relax liquidity and may underestimate it under gross-only or net-only semantics.",
       recommendation: "Keep the conservative dual check unchanged until higher-tier evidence is reviewed.",
+    },
+    commands: {
+      pinned: "npm run verify:upshift-limit:coston2:pinned",
+      evidenceBlock: "32788892",
+      mode: requestedBlock === undefined ? "LATEST_EXPLORATION" : "PINNED_REPRODUCTION",
     },
     calls,
     writeTransactionsBroadcast: false,

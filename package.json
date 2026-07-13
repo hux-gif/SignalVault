@@ -12,6 +12,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "upshift:smoke:coston2": "npm run smoke:coston2 --workspace integration",
     "upshift:economics:coston2": "npm run economics:coston2 --workspace integration",
-    "verify:upshift-limit:coston2": "npm run verify:upshift-limit:coston2 --workspace integration"
+    "verify:upshift-limit:coston2": "npm run verify:upshift-limit:coston2 --workspace integration",
+    "verify:upshift-limit:coston2:pinned": "npm run verify:upshift-limit:coston2:pinned --workspace integration"
   }
 }

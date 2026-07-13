@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import {
   assertAddressBinding,
@@ -11,6 +13,7 @@ import {
   requireContractCode,
   requireEvidenceBlock,
   requireExpectedChain,
+  resolveEvidenceBlock,
   selectRedemptionProbes,
   serializeEvidence,
   validateDepositPreview,
@@ -19,6 +22,74 @@ import {
 } from "./upshift-withdrawal-limit-semantics.js";
 
 describe("Upshift withdrawal-limit evidence validation", () => {
+  it.each([
+    [["--block", "32788892"], 32788892n],
+    [["--block=32788892"], 32788892n],
+  ])("parses a pinned CLI block", (args, expected) => {
+    expect(resolveEvidenceBlock(args, {})).toBe(expected);
+  });
+
+  it("supports the existing environment block and matching CLI value", () => {
+    expect(resolveEvidenceBlock([], { UPSHIFT_EVIDENCE_BLOCK: "32788892" })).toBe(32788892n);
+    expect(
+      resolveEvidenceBlock(["--block", "32788892"], {
+        UPSHIFT_EVIDENCE_BLOCK: "32788892",
+      }),
+    ).toBe(32788892n);
+  });
+
+  it("returns undefined only for an explicit latest exploration", () => {
+    expect(resolveEvidenceBlock([], {})).toBeUndefined();
+  });
+
+  it("rejects conflicting CLI and environment blocks", () => {
+    expect(() =>
+      resolveEvidenceBlock(["--block", "32788892"], {
+        UPSHIFT_EVIDENCE_BLOCK: "32788893",
+      }),
+    ).toThrow(/conflict/i);
+  });
+
+  it.each([
+    "0",
+    "-1",
+    "1.5",
+    "1e3",
+    "not-a-block",
+    (2n ** 256n).toString(),
+  ])("rejects invalid evidence block %s", (value) => {
+    expect(() => resolveEvidenceBlock(["--block", value], {})).toThrow(/block/i);
+  });
+
+  it("rejects a missing or duplicated CLI block", () => {
+    expect(() => resolveEvidenceBlock(["--block"], {})).toThrow(/block/i);
+    expect(() =>
+      resolveEvidenceBlock(["--block=1", "--block=1"], {}),
+    ).toThrow(/block/i);
+  });
+
+  it("publishes a cross-platform fixed-block package command", () => {
+    const rootPackage = JSON.parse(readFileSync(resolve("../package.json"), "utf8"));
+    const integrationPackage = JSON.parse(readFileSync(resolve("package.json"), "utf8"));
+    expect(rootPackage.scripts["verify:upshift-limit:coston2:pinned"]).toContain(
+      "verify:upshift-limit:coston2:pinned",
+    );
+    expect(integrationPackage.scripts["verify:upshift-limit:coston2:pinned"]).toMatch(
+      /--block 32788892$/,
+    );
+  });
+
+  it("documents the pinned command and records it in the evidence report", () => {
+    const readme = readFileSync(resolve("../README.md"), "utf8");
+    const report = JSON.parse(
+      readFileSync(resolve("../reports/upshift-withdrawal-limit-semantics.json"), "utf8"),
+    );
+    expect(readme).toContain("npm run verify:upshift-limit:coston2:pinned");
+    expect(report.commands.pinned).toBe("npm run verify:upshift-limit:coston2:pinned");
+    expect(report.commands.evidenceBlock).toBe("32788892");
+    expect(report.writeTransactionsBroadcast).toBe(false);
+    expect(report.privateKeyLoaded).toBe(false);
+  });
   it.each([
     [100n, 99n, 100n, true],
     [101n, 99n, 100n, false],

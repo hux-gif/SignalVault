@@ -168,6 +168,11 @@
     "knownEffect": "The dual check does not relax liquidity and may underestimate it under gross-only or net-only semantics.",
     "recommendation": "Keep the conservative dual check unchanged until higher-tier evidence is reviewed."
   },
+  "commands": {
+    "pinned": "npm run verify:upshift-limit:coston2:pinned",
+    "evidenceBlock": "32788892",
+    "mode": "PINNED_REPRODUCTION"
+  },
   "calls": [
     {
       "classification": "OBSERVED",
