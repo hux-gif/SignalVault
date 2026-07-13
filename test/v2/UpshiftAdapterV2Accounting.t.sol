@@ -309,9 +309,70 @@ contract UpshiftAdapterV2AccountingTest is Test {
         assertEq(limit, 999);
     }
 
-    function testProtocolStatusFailsClosedOnBindingMismatch() external {
+    function testProtocolStatusDisablesBothFlagsOnAssetBindingMismatch() external {
         protocol.setReportedAsset(address(0xDEAD));
-        vm.expectRevert(UpshiftAdapterV2.AssetBindingMismatch.selector);
+        protocol.setInstantFee(75);
+        protocol.setMaxWithdrawalReferenceAmount(50_000);
+        (bool depositsEnabled, bool withdrawalsEnabled, uint256 limit, uint256 fee) =
+            adapter.protocolStatus();
+        assertFalse(depositsEnabled);
+        assertFalse(withdrawalsEnabled);
+        assertEq(limit, 50_000);
+        assertEq(fee, 75);
+    }
+
+    function testProtocolStatusDisablesBothFlagsOnLPBindingMismatch() external {
+        protocol.setReportedLPToken(address(0xDEAD));
+        (bool depositsEnabled, bool withdrawalsEnabled,,) = adapter.protocolStatus();
+        assertFalse(depositsEnabled);
+        assertFalse(withdrawalsEnabled);
+    }
+
+    function testProtocolStatusDisablesBothFlagsWhenBothBindingsMismatch() external {
+        protocol.setReportedAsset(address(0xDEAD));
+        protocol.setReportedLPToken(address(0xBEEF));
+        (bool depositsEnabled, bool withdrawalsEnabled,,) = adapter.protocolStatus();
+        assertFalse(depositsEnabled);
+        assertFalse(withdrawalsEnabled);
+    }
+
+    function testProtocolStatusBindingMismatchAndPauseRemainDisabled() external {
+        protocol.setReportedAsset(address(0xDEAD));
+        protocol.setPaused(true);
+        (bool depositsEnabled, bool withdrawalsEnabled, uint256 limit,) = adapter.protocolStatus();
+        assertFalse(depositsEnabled);
+        assertFalse(withdrawalsEnabled);
+        assertEq(limit, 0);
+    }
+
+    function testProtocolStatusDisablesBothFlagsWhenBindingGetterReverts() external {
+        vm.mockCallRevert(
+            address(protocol),
+            abi.encodeWithSelector(IUpshiftVaultV2.asset.selector),
+            bytes("asset getter")
+        );
+        (bool depositsEnabled, bool withdrawalsEnabled,,) = adapter.protocolStatus();
+        assertFalse(depositsEnabled);
+        assertFalse(withdrawalsEnabled);
+    }
+
+    function testProtocolStatusPropagatesFeeGetterRevert() external {
+        vm.mockCallRevert(
+            address(protocol),
+            abi.encodeWithSelector(IUpshiftVaultV2.instantRedemptionFee.selector),
+            bytes("fee getter")
+        );
+        vm.expectRevert(bytes("fee getter"));
+        adapter.protocolStatus();
+    }
+
+    function testProtocolStatusPropagatesLimitGetterRevert() external {
+        vm.mockCallRevert(
+            address(protocol),
+            abi.encodeWithSelector(IUpshiftVaultV2.maxWithdrawalAmount.selector),
+            bytes("limit getter")
+        );
+        vm.expectRevert(bytes("limit getter"));
         adapter.protocolStatus();
     }
 

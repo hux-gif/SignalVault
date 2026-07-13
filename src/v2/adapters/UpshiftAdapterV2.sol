@@ -186,10 +186,10 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, IStrategyRecoveryV2, Reentrancy
         )
     {
         _requireOperational();
-        _verifyBindings();
+        bool bindingsMatch = _bindingsMatch();
         bool paused = _protocol.withdrawalsPaused();
-        depositsEnabled = !paused;
-        withdrawalsEnabled = !paused;
+        depositsEnabled = bindingsMatch && !paused;
+        withdrawalsEnabled = bindingsMatch && !paused;
         maxWithdrawalReferenceAmount = _protocol.maxWithdrawalAmount();
         rawInstantRedemptionFee = _protocol.instantRedemptionFee();
     }
@@ -383,6 +383,19 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, IStrategyRecoveryV2, Reentrancy
     function _verifyBindings() internal view {
         if (_protocol.asset() != address(_asset)) revert AssetBindingMismatch();
         if (_protocol.lpTokenAddress() != address(_lpToken)) revert LPBindingMismatch();
+    }
+
+    function _bindingsMatch() internal view returns (bool) {
+        try _protocol.asset() returns (address reportedAsset) {
+            if (reportedAsset != address(_asset)) return false;
+        } catch {
+            return false;
+        }
+        try _protocol.lpTokenAddress() returns (address reportedLPToken) {
+            return reportedLPToken == address(_lpToken);
+        } catch {
+            return false;
+        }
     }
 
     function _requireOperational() internal view {
