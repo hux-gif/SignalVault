@@ -7,7 +7,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "smoke:coston2": "node --env-file-if-exists=.env --import tsx upshift-coston2-smoke.ts",
-    "economics:coston2": "node --env-file-if-exists=.env --import tsx upshift-coston2-economics.ts"
+    "economics:coston2": "node --env-file-if-exists=.env --import tsx upshift-coston2-economics.ts",
+    "verify:upshift-limit:coston2": "node --env-file-if-exists=.env --import tsx upshift-withdrawal-limit-semantics.ts"
   },
   "dependencies": {
     "viem": "^2.38.5"
