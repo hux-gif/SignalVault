@@ -436,7 +436,7 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, IStrategyRecoveryV2, Reentrancy
     }
 
     /// @dev Calls protocol.previewRedemption(shares, true) and validates consistency.
-    /// For nonzero shares: gross must be > 0 and net must be <= gross.
+    /// For nonzero shares: gross and net must both be > 0, and net must be <= gross.
     /// A reverted preview propagates as PreviewReverted (fail closed).
     function _positionPreview(uint256 shares) internal view returns (uint256 gross, uint256 net) {
         try _protocol.previewRedemption(shares, true) returns (uint256 g, uint256 n) {

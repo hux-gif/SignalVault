@@ -282,11 +282,11 @@ that value.
 
 ## Testing
 
-Current Gate 4B final-repair feature-branch baseline:
+Current Gate 4B third-repair feature-branch baseline:
 
 ```text
-Vitest:   157 passed (96 local-signer, 61 integration)
-Foundry:  288 passed
+Vitest:   163 passed (96 local-signer, 67 integration)
+Foundry:  301 passed
 Typecheck: pass
 Forge fmt: clean
 Forge build: clean
@@ -329,7 +329,9 @@ reports/                      Coston2 verification reports
 ### Planned mitigations (Gate 4B / 4C)
 
 - protocol fee changes: live preview reads, no hardcoded 50 BPS
-- protocol pause: fail-closed accounting when `withdrawalsPaused` is true
+- protocol pause: NAV views continue to value a valid position while protocol
+  liquidity and redemption execution are disabled; invalid nonzero position
+  previews still fail closed
 - proxy / implementation change: binding verification around protocol calls
 - preview / execution deviation: `maximumPreviewDeviationBps` signed limit
 - low-liquidity withdrawal: conservative `availableLiquidity` with 64-call bound

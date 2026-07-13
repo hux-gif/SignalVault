@@ -356,6 +356,20 @@ contract UpshiftAdapterV2AccountingTest is Test {
         assertFalse(withdrawalsEnabled);
     }
 
+    function testProtocolStatusDisablesBothFlagsWhenLPBindingGetterReverts() external {
+        vm.mockCallRevert(
+            address(protocol),
+            abi.encodeWithSelector(IUpshiftVaultV2.lpTokenAddress.selector),
+            bytes("LP getter")
+        );
+        (bool depositsEnabled, bool withdrawalsEnabled,,) = adapter.protocolStatus();
+        assertFalse(depositsEnabled);
+        assertFalse(withdrawalsEnabled);
+
+        vm.expectRevert(bytes("LP getter"));
+        adapter.totalAssets();
+    }
+
     function testProtocolStatusPropagatesFeeGetterRevert() external {
         vm.mockCallRevert(
             address(protocol),
