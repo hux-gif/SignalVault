@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   createPublicClient,
+  custom,
   decodeFunctionResult,
   defineChain,
   encodeFunctionData,
@@ -90,6 +91,38 @@ export type DepositPreview = {
   expectedShares: bigint;
   referenceAmount: bigint;
 };
+
+export type RpcRequestArguments = {
+  method: string;
+  params?: readonly unknown[];
+};
+
+export type RpcRequester = {
+  request(args: RpcRequestArguments): Promise<unknown>;
+};
+
+export const READ_ONLY_RPC_METHODS = new Set([
+  "eth_chainId",
+  "eth_getBlockByNumber",
+  "eth_getCode",
+  "eth_getStorageAt",
+  "eth_call",
+]);
+
+export function createReadOnlyRpcGateway(
+  upstream: RpcRequester,
+  observedMethods: string[] = [],
+): RpcRequester {
+  return {
+    async request(args: RpcRequestArguments): Promise<unknown> {
+      if (!READ_ONLY_RPC_METHODS.has(args.method)) {
+        throw new Error(`Read-only evidence forbids RPC method: ${args.method}`);
+      }
+      observedMethods.push(args.method);
+      return upstream.request(args);
+    },
+  };
+}
 
 const MAX_UINT256 = 2n ** 256n - 1n;
 
@@ -353,16 +386,45 @@ function recordCall(
   });
 }
 
-async function collectEvidence(): Promise<Record<string, unknown>> {
-  const rpcUrl = process.env.COSTON2_RPC_URL ?? DEFAULT_RPC_URL;
-  const client = createPublicClient({
+function createEvidenceClient(rpc: RpcRequester): PublicClient {
+  return createPublicClient({
+    chain: coston2,
+    transport: custom({
+      request: (args: RpcRequestArguments) => rpc.request(args),
+    }),
+  });
+}
+
+function createLiveRpcRequester(rpcUrl: string): RpcRequester {
+  const upstream = createPublicClient({
     chain: coston2,
     transport: http(rpcUrl, { retryCount: 4, timeout: 20_000 }),
   });
+  return {
+    request: async (args: RpcRequestArguments): Promise<unknown> =>
+      Reflect.apply(upstream.request, upstream, [args]),
+  };
+}
+
+export type GenerateEvidenceOptions = {
+  blockNumber: bigint | undefined;
+  rpc: RpcRequester;
+  rpcEndpointLabel: string;
+  observedRpcMethods?: string[];
+};
+
+export async function generateUpshiftEvidence(
+  options: GenerateEvidenceOptions,
+): Promise<Record<string, unknown>> {
+  const requestedBlock = options.blockNumber;
+  const gateway = createReadOnlyRpcGateway(
+    options.rpc,
+    options.observedRpcMethods,
+  );
+  const client = createEvidenceClient(gateway);
   const chainId = await withRpcBoundary("chain ID", () => client.getChainId());
   requireExpectedChain(chainId);
 
-  const requestedBlock = resolveEvidenceBlock(process.argv.slice(2), process.env);
   const block = requestedBlock === undefined
     ? await withRpcBoundary("latest evidence block", () => client.getBlock({ blockTag: "latest" }))
     : await withRpcBoundary("pinned evidence block", () =>
@@ -608,7 +670,7 @@ async function collectEvidence(): Promise<Record<string, unknown>> {
       classification: "OBSERVED",
       name: "coston2",
       chainId,
-      rpcEndpointLabel: rpcUrl === DEFAULT_RPC_URL ? "Flare public Coston2 RPC" : "custom RPC (redacted)",
+      rpcEndpointLabel: options.rpcEndpointLabel,
     },
     block: {
       classification: "OBSERVED",
@@ -694,16 +756,56 @@ async function collectEvidence(): Promise<Record<string, unknown>> {
   };
 }
 
-async function writeEvidence(report: Record<string, unknown>): Promise<void> {
+async function writeEvidence(serializedReport: string): Promise<void> {
   const here = dirname(fileURLToPath(import.meta.url));
   const reportPath = resolve(here, "../reports/upshift-withdrawal-limit-semantics.json");
   await mkdir(dirname(reportPath), { recursive: true });
-  await writeFile(reportPath, `${serializeEvidence(report, 2)}\n`, "utf8");
+  await writeFile(reportPath, serializedReport, "utf8");
+}
+
+export type RunEvidenceCommandOptions = {
+  args: readonly string[];
+  env: Readonly<Record<string, string | undefined>>;
+  rpc: RpcRequester;
+  rpcEndpointLabel: string;
+  writeReport?: boolean;
+};
+
+export type EvidenceCommandResult = {
+  report: Record<string, unknown>;
+  serializedReport: string;
+  observedRpcMethods: readonly string[];
+};
+
+export async function runEvidenceCommand(
+  options: RunEvidenceCommandOptions,
+): Promise<EvidenceCommandResult> {
+  const blockNumber = resolveEvidenceBlock(options.args, options.env);
+  const observedRpcMethods: string[] = [];
+  const report = await generateUpshiftEvidence({
+    blockNumber,
+    rpc: options.rpc,
+    rpcEndpointLabel: options.rpcEndpointLabel,
+    observedRpcMethods,
+  });
+  const serializedReport = `${serializeEvidence(report, 2)}\n`;
+  if (options.writeReport) await writeEvidence(serializedReport);
+  return { report, serializedReport, observedRpcMethods };
 }
 
 async function main(): Promise<void> {
-  const report = await collectEvidence();
-  await writeEvidence(report);
+  const rpcUrl = process.env.COSTON2_RPC_URL ?? DEFAULT_RPC_URL;
+  const result = await runEvidenceCommand({
+    args: process.argv.slice(2),
+    env: process.env,
+    rpc: createLiveRpcRequester(rpcUrl),
+    rpcEndpointLabel:
+      rpcUrl === DEFAULT_RPC_URL
+        ? "Flare public Coston2 RPC"
+        : "custom RPC (redacted)",
+    writeReport: true,
+  });
+  const { report } = result;
   process.stdout.write(
     `${serializeEvidence({
       status: report.status,
