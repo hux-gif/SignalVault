@@ -12,6 +12,7 @@ import {MockLPTokenV2} from "./mocks/MockLPTokenV2.sol";
 import {ExecutionUpshiftVaultMock} from "./mocks/ExecutionUpshiftVaultMock.sol";
 import {FalseReturnERC20V2} from "./mocks/FalseReturnERC20V2.sol";
 import {SkimmingERC20V2} from "./mocks/SkimmingERC20V2.sol";
+import {AdversarialDebitERC20V2} from "./mocks/AdversarialDebitERC20V2.sol";
 
 contract UpshiftAdapterV2ExecutionTest is Test {
     bytes4 internal constant ONLY_ROUTER = bytes4(keccak256("OnlyRouter()"));
@@ -334,6 +335,101 @@ contract UpshiftAdapterV2AdversarialExecutionTest is Test {
 
         assertEq(skimAsset.balanceOf(address(skimAdapter)), 100);
         assertEq(skimAsset.balanceOf(address(this)), 0);
+    }
+
+    function testWithdrawLiquidRejectsAdapterOverDebitAtomically() external {
+        (
+            AdversarialDebitERC20V2 hostileAsset,
+            MockLPTokenV2 hostileLP,
+            ExecutionUpshiftVaultMock hostileProtocol,
+            UpshiftAdapterV2 hostileAdapter
+        ) = _deployAdversarialDebitAdapter();
+        hostileAsset.mint(address(hostileAdapter), 200);
+        hostileAsset.configureDebit(
+            address(hostileAdapter), AdversarialDebitERC20V2.DebitMode.OverDebit, 1
+        );
+
+        vm.expectRevert(UpshiftAdapterV2.AssetDeltaMismatch.selector);
+        hostileAdapter.withdrawLiquid(100);
+
+        assertEq(hostileAsset.balanceOf(address(hostileAdapter)), 200);
+        assertEq(hostileAsset.balanceOf(address(this)), 0);
+        assertEq(hostileAsset.allowance(address(hostileAdapter), address(hostileProtocol)), 0);
+        assertEq(hostileLP.allowance(address(hostileAdapter), address(hostileProtocol)), 0);
+        assertEq(hostileProtocol.depositCallCount(), 0);
+        assertEq(hostileProtocol.redeemCallCount(), 0);
+        assertFalse(hostileAdapter.positionRecovered());
+    }
+
+    function testWithdrawLiquidRejectsAdapterUnderDebitAtomically() external {
+        (
+            AdversarialDebitERC20V2 hostileAsset,
+            MockLPTokenV2 hostileLP,
+            ExecutionUpshiftVaultMock hostileProtocol,
+            UpshiftAdapterV2 hostileAdapter
+        ) = _deployAdversarialDebitAdapter();
+        hostileAsset.mint(address(hostileAdapter), 200);
+        hostileAsset.configureDebit(
+            address(hostileAdapter), AdversarialDebitERC20V2.DebitMode.UnderDebit, 1
+        );
+
+        vm.expectRevert(UpshiftAdapterV2.AssetDeltaMismatch.selector);
+        hostileAdapter.withdrawLiquid(100);
+
+        assertEq(hostileAsset.balanceOf(address(hostileAdapter)), 200);
+        assertEq(hostileAsset.balanceOf(address(this)), 0);
+        assertEq(hostileAsset.allowance(address(hostileAdapter), address(hostileProtocol)), 0);
+        assertEq(hostileLP.allowance(address(hostileAdapter), address(hostileProtocol)), 0);
+        assertEq(hostileProtocol.depositCallCount(), 0);
+        assertEq(hostileProtocol.redeemCallCount(), 0);
+        assertFalse(hostileAdapter.positionRecovered());
+    }
+
+    function testWithdrawLiquidRejectsRouterOverReceiptAtomically() external {
+        (
+            AdversarialDebitERC20V2 hostileAsset,
+            MockLPTokenV2 hostileLP,
+            ExecutionUpshiftVaultMock hostileProtocol,
+            UpshiftAdapterV2 hostileAdapter
+        ) = _deployAdversarialDebitAdapter();
+        hostileAsset.mint(address(hostileAdapter), 200);
+        hostileAsset.configureDebit(
+            address(hostileAdapter),
+            AdversarialDebitERC20V2.DebitMode.ReceiverOverCredit,
+            1
+        );
+
+        vm.expectRevert(UpshiftAdapterV2.RouterDeltaMismatch.selector);
+        hostileAdapter.withdrawLiquid(100);
+
+        assertEq(hostileAsset.balanceOf(address(hostileAdapter)), 200);
+        assertEq(hostileAsset.balanceOf(address(this)), 0);
+        assertEq(hostileAsset.allowance(address(hostileAdapter), address(hostileProtocol)), 0);
+        assertEq(hostileLP.allowance(address(hostileAdapter), address(hostileProtocol)), 0);
+        assertEq(hostileProtocol.depositCallCount(), 0);
+        assertEq(hostileProtocol.redeemCallCount(), 0);
+        assertFalse(hostileAdapter.positionRecovered());
+    }
+
+    function _deployAdversarialDebitAdapter()
+        private
+        returns (
+            AdversarialDebitERC20V2 hostileAsset,
+            MockLPTokenV2 hostileLP,
+            ExecutionUpshiftVaultMock hostileProtocol,
+            UpshiftAdapterV2 hostileAdapter
+        )
+    {
+        hostileAsset = new AdversarialDebitERC20V2();
+        hostileLP = new MockLPTokenV2("Hostile LP", "HLP", 18);
+        hostileProtocol =
+            new ExecutionUpshiftVaultMock(address(hostileAsset), address(hostileLP));
+        hostileAdapter = new UpshiftAdapterV2(
+            IERC20(address(hostileAsset)),
+            address(this),
+            hostileProtocol,
+            IERC20(address(hostileLP))
+        );
     }
 
     function testDepositRejectsTransferFromShortfallAtomically() external {

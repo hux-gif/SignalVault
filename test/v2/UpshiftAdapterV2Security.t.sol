@@ -13,6 +13,7 @@ import {ExecutionUpshiftVaultMock} from "./mocks/ExecutionUpshiftVaultMock.sol";
 import {MockLPTokenV2} from "./mocks/MockLPTokenV2.sol";
 import {FalseReturnERC20V2} from "./mocks/FalseReturnERC20V2.sol";
 import {ReentrantERC20V2} from "./mocks/ReentrantERC20V2.sol";
+import {AdversarialDebitERC20V2} from "./mocks/AdversarialDebitERC20V2.sol";
 import {SkimmingERC20V2} from "./mocks/SkimmingERC20V2.sol";
 import {ReentrantUpshiftVaultMock} from "./mocks/ReentrantUpshiftVaultMock.sol";
 import {MaliciousStrategyAdapterV2} from "./mocks/MaliciousStrategyAdapterV2.sol";
@@ -103,6 +104,35 @@ contract UpshiftAdapterV2SecurityTest is Test {
         assertEq(adapter.withdrawLiquid(77), 77);
         assertEq(asset.balanceOf(address(this)), 77);
         assertEq(asset.balanceOf(address(adapter)), 0);
+    }
+
+    function testWithdrawLiquidAfterRecoveryStillRejectsAdapterOverDebitAtomically() external {
+        AdversarialDebitERC20V2 hostileAsset = new AdversarialDebitERC20V2();
+        MockLPTokenV2 hostileLP = new MockLPTokenV2("Hostile LP", "HLP", 18);
+        ExecutionUpshiftVaultMock hostileProtocol =
+            new ExecutionUpshiftVaultMock(address(hostileAsset), address(hostileLP));
+        UpshiftAdapterV2 hostileAdapter = new UpshiftAdapterV2(
+            IERC20(address(hostileAsset)),
+            address(this),
+            hostileProtocol,
+            IERC20(address(hostileLP))
+        );
+
+        hostileLP.mint(address(hostileAdapter), 1);
+        IStrategyRecoveryV2(address(hostileAdapter)).recoverPosition(receiver);
+        hostileAsset.mint(address(hostileAdapter), 200);
+        hostileAsset.configureDebit(
+            address(hostileAdapter), AdversarialDebitERC20V2.DebitMode.OverDebit, 1
+        );
+
+        vm.expectRevert(UpshiftAdapterV2.AssetDeltaMismatch.selector);
+        hostileAdapter.withdrawLiquid(100);
+
+        assertEq(hostileAsset.balanceOf(address(hostileAdapter)), 200);
+        assertEq(hostileAsset.balanceOf(address(this)), 0);
+        assertEq(hostileProtocol.depositCallCount(), 0);
+        assertEq(hostileProtocol.redeemCallCount(), 0);
+        assertTrue(hostileAdapter.positionRecovered());
     }
 
     function testNormalProtocolOperationsAreDisabledAfterRecovery() external {

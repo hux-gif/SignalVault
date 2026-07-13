@@ -239,12 +239,20 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, IStrategyRecoveryV2, Reentrancy
     {
         if (!positionRecovered) _verifyBindings();
         if (assets == 0) revert ZeroAmount();
-        if (_asset.balanceOf(address(this)) < assets) revert InsufficientBalance();
+        uint256 adapterBefore = _asset.balanceOf(address(this));
+        if (adapterBefore < assets) revert InsufficientBalance();
 
         uint256 routerBefore = _asset.balanceOf(msg.sender);
         _asset.safeTransfer(msg.sender, assets);
-        assetsReceived = _asset.balanceOf(msg.sender) - routerBefore;
-        if (assetsReceived != assets) revert RouterDeltaMismatch();
+        uint256 adapterAfter = _asset.balanceOf(address(this));
+        uint256 routerAfter = _asset.balanceOf(msg.sender);
+        if (adapterAfter > adapterBefore || adapterBefore - adapterAfter != assets) {
+            revert AssetDeltaMismatch();
+        }
+        if (routerAfter < routerBefore || routerAfter - routerBefore != assets) {
+            revert RouterDeltaMismatch();
+        }
+        assetsReceived = assets;
         _assertNoAllowances();
         emit LiquidWithdrawn(assets, assetsReceived);
     }
