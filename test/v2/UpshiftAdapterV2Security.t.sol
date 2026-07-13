@@ -14,6 +14,8 @@ import {MockLPTokenV2} from "./mocks/MockLPTokenV2.sol";
 import {FalseReturnERC20V2} from "./mocks/FalseReturnERC20V2.sol";
 import {ReentrantERC20V2} from "./mocks/ReentrantERC20V2.sol";
 import {SkimmingERC20V2} from "./mocks/SkimmingERC20V2.sol";
+import {ReentrantUpshiftVaultMock} from "./mocks/ReentrantUpshiftVaultMock.sol";
+import {MaliciousStrategyAdapterV2} from "./mocks/MaliciousStrategyAdapterV2.sol";
 
 contract UpshiftAdapterV2SecurityTest is Test {
     bytes4 internal constant ONLY_ROUTER = bytes4(keccak256("OnlyRouter()"));
@@ -35,7 +37,7 @@ contract UpshiftAdapterV2SecurityTest is Test {
     function setUp() public {
         asset = new MockLPTokenV2("MockFXRP", "MFXRP", 6);
         lp = new MockLPTokenV2("MockUpshiftLP", "MULP", 6);
-        protocol = new ExecutionUpshiftVaultMock(address(asset), address(lp));
+        protocol = new ReentrantUpshiftVaultMock(address(asset), address(lp));
         adapter = new UpshiftAdapterV2(
             IERC20(address(asset)), address(this), protocol, IERC20(address(lp))
         );
@@ -52,6 +54,13 @@ contract UpshiftAdapterV2SecurityTest is Test {
     function testRecoverPositionIsRouterOnly() external {
         lp.mint(address(adapter), 100);
         vm.prank(attacker);
+        vm.expectRevert(ONLY_ROUTER);
+        recovery.recoverPosition(receiver);
+    }
+
+    function testProtocolCannotInvokeRecovery() external {
+        lp.mint(address(adapter), 100);
+        vm.prank(address(protocol));
         vm.expectRevert(ONLY_ROUTER);
         recovery.recoverPosition(receiver);
     }
@@ -253,5 +262,13 @@ contract UpshiftAdapterV2SecurityTest is Test {
         (bool ok,) =
             address(idle).call(abi.encodeCall(IStrategyRecoveryV2.recoverPosition, (receiver)));
         assertFalse(ok);
+    }
+
+    function testPlanNamedMaliciousAdapterMockCannotMoveAssets() external {
+        MaliciousStrategyAdapterV2 malicious =
+            new MaliciousStrategyAdapterV2(address(asset), address(lp));
+        malicious.setReportedValue(1_000);
+        assertEq(malicious.deposit(1, 0), 1_000);
+        assertEq(asset.balanceOf(address(malicious)), 0);
     }
 }
