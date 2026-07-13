@@ -3,15 +3,18 @@ pragma solidity 0.8.27;
 
 import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import {IdleAdapterV2} from "../../src/v2/adapters/IdleAdapterV2.sol";
 import {IStrategyAdapterV2} from "../../src/v2/interfaces/IStrategyAdapterV2.sol";
 import {MockLPTokenV2} from "./mocks/MockLPTokenV2.sol";
 import {FalseReturnERC20V2} from "./mocks/FalseReturnERC20V2.sol";
 import {ReentrantERC20V2} from "./mocks/ReentrantERC20V2.sol";
+import {SkimmingERC20V2} from "./mocks/SkimmingERC20V2.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 contract IdleAdapterV2Test is Test {
+    bytes4 internal constant ASSET_DELTA_MISMATCH = bytes4(keccak256("AssetDeltaMismatch()"));
     MockLPTokenV2 internal asset;
     IdleAdapterV2 internal idle;
     address internal router = address(0xA11CE);
@@ -290,6 +293,77 @@ contract IdleAdapterV2Test is Test {
         assertEq(falseAsset.balanceOf(address(falseIdle)), 0);
     }
 
+    function testDepositRejectsTransferFromShortfallAtomically() external {
+        SkimmingERC20V2 skimming = new SkimmingERC20V2();
+        IdleAdapterV2 skimmingIdle = new IdleAdapterV2(IERC20(address(skimming)), router);
+        skimming.mint(router, 100);
+        skimming.mint(address(skimmingIdle), 7);
+        skimming.setTransferFromShortfall(router, 1);
+
+        vm.startPrank(router);
+        skimming.approve(address(skimmingIdle), 100);
+        vm.expectRevert(ASSET_DELTA_MISMATCH);
+        skimmingIdle.deposit(100, 0);
+        vm.stopPrank();
+
+        assertEq(skimming.balanceOf(router), 100);
+        assertEq(skimming.balanceOf(address(skimmingIdle)), 7);
+        assertEq(skimming.allowance(router, address(skimmingIdle)), 100);
+    }
+
+    function testWithdrawLiquidRejectsRouterUnderReceiptAtomically() external {
+        (SkimmingERC20V2 skimming, IdleAdapterV2 skimmingIdle) = _skimmingIdleWithDonation(100);
+        skimming.setTransferShortfall(address(skimmingIdle), 1);
+
+        vm.prank(router);
+        vm.expectRevert(ASSET_DELTA_MISMATCH);
+        skimmingIdle.withdrawLiquid(100);
+
+        assertEq(skimming.balanceOf(router), 0);
+        assertEq(skimming.balanceOf(address(skimmingIdle)), 100);
+        assertEq(skimming.allowance(address(skimmingIdle), router), 0);
+    }
+
+    function testWithdrawLiquidRejectsAdapterOverDebitAtomically() external {
+        OverDebitingERC20V2 overDebiting = new OverDebitingERC20V2();
+        IdleAdapterV2 overDebitingIdle = new IdleAdapterV2(IERC20(address(overDebiting)), router);
+        overDebiting.mint(address(overDebitingIdle), 101);
+        overDebiting.setOverDebitSender(address(overDebitingIdle));
+
+        vm.prank(router);
+        vm.expectRevert(ASSET_DELTA_MISMATCH);
+        overDebitingIdle.withdrawLiquid(100);
+
+        assertEq(overDebiting.balanceOf(router), 0);
+        assertEq(overDebiting.balanceOf(address(overDebitingIdle)), 101);
+    }
+
+    function testRedeemRejectsRouterUnderReceiptAtomically() external {
+        (SkimmingERC20V2 skimming, IdleAdapterV2 skimmingIdle) = _skimmingIdleWithDonation(100);
+        skimming.setTransferShortfall(address(skimmingIdle), 1);
+
+        vm.prank(router);
+        vm.expectRevert(ASSET_DELTA_MISMATCH);
+        skimmingIdle.redeem(60, 0);
+
+        assertEq(skimming.balanceOf(router), 0);
+        assertEq(skimming.balanceOf(address(skimmingIdle)), 100);
+        assertEq(skimming.allowance(address(skimmingIdle), router), 0);
+    }
+
+    function testRedeemAllRejectsRouterUnderReceiptAtomically() external {
+        (SkimmingERC20V2 skimming, IdleAdapterV2 skimmingIdle) = _skimmingIdleWithDonation(100);
+        skimming.setTransferShortfall(address(skimmingIdle), 1);
+
+        vm.prank(router);
+        vm.expectRevert(ASSET_DELTA_MISMATCH);
+        skimmingIdle.redeemAll(0);
+
+        assertEq(skimming.balanceOf(router), 0);
+        assertEq(skimming.balanceOf(address(skimmingIdle)), 100);
+        assertEq(skimming.allowance(address(skimmingIdle), router), 0);
+    }
+
     // ---- Interface conformance ----
 
     function testImplementsIStrategyAdapterV2() external pure {
@@ -354,5 +428,34 @@ contract IdleAdapterV2Test is Test {
         // After revert, state must be unchanged.
         assertEq(reentrantToken.balanceOf(address(reentrantAdapter)), adapterBefore);
         assertEq(reentrantToken.balanceOf(address(this)), routerBefore);
+    }
+
+    function _skimmingIdleWithDonation(uint256 donation)
+        private
+        returns (SkimmingERC20V2 skimming, IdleAdapterV2 skimmingIdle)
+    {
+        skimming = new SkimmingERC20V2();
+        skimmingIdle = new IdleAdapterV2(IERC20(address(skimming)), router);
+        skimming.mint(address(skimmingIdle), donation);
+    }
+}
+
+contract OverDebitingERC20V2 is ERC20 {
+    address private _overDebitSender;
+
+    constructor() ERC20("Over-debiting Token", "OVER") {}
+
+    function mint(address receiver, uint256 amount) external {
+        _mint(receiver, amount);
+    }
+
+    function setOverDebitSender(address sender) external {
+        _overDebitSender = sender;
+    }
+
+    function transfer(address receiver, uint256 amount) public override returns (bool) {
+        _transfer(msg.sender, receiver, amount);
+        if (msg.sender == _overDebitSender) _burn(msg.sender, 1);
+        return true;
     }
 }

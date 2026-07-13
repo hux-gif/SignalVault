@@ -23,6 +23,7 @@ contract IdleAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
     error InsufficientBalance();
     error InsufficientSharesOut();
     error InsufficientAssetsOut();
+    error AssetDeltaMismatch();
 
     constructor(IERC20 asset_, address router_) {
         if (address(asset_) == address(0)) revert ZeroAddress();
@@ -106,9 +107,7 @@ contract IdleAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
     {
         if (assets == 0) revert ZeroAmount();
         if (_asset.balanceOf(address(this)) < assets) revert InsufficientBalance();
-        uint256 routerBefore = _asset.balanceOf(msg.sender);
-        _asset.safeTransfer(msg.sender, assets);
-        assetsReceived = _asset.balanceOf(msg.sender) - routerBefore;
+        assetsReceived = _transferExact(msg.sender, assets);
     }
 
     function deposit(uint256 assets, uint256 minSharesOut)
@@ -121,6 +120,7 @@ contract IdleAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
         uint256 adapterBefore = _asset.balanceOf(address(this));
         _asset.safeTransferFrom(msg.sender, address(this), assets);
         sharesReceived = _asset.balanceOf(address(this)) - adapterBefore;
+        if (sharesReceived != assets) revert AssetDeltaMismatch();
         if (sharesReceived < minSharesOut) revert InsufficientSharesOut();
     }
 
@@ -132,9 +132,7 @@ contract IdleAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
     {
         if (shares == 0) revert ZeroAmount();
         if (_asset.balanceOf(address(this)) < shares) revert InsufficientBalance();
-        uint256 routerBefore = _asset.balanceOf(msg.sender);
-        _asset.safeTransfer(msg.sender, shares);
-        assetsReceived = _asset.balanceOf(msg.sender) - routerBefore;
+        assetsReceived = _transferExact(msg.sender, shares);
         if (assetsReceived < minAssetsOut) revert InsufficientAssetsOut();
     }
 
@@ -146,9 +144,23 @@ contract IdleAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
     {
         uint256 balance = _asset.balanceOf(address(this));
         if (balance == 0) revert ZeroAmount();
-        uint256 routerBefore = _asset.balanceOf(msg.sender);
-        _asset.safeTransfer(msg.sender, balance);
-        assetsReceived = _asset.balanceOf(msg.sender) - routerBefore;
+        assetsReceived = _transferExact(msg.sender, balance);
         if (assetsReceived < minAssetsOut) revert InsufficientAssetsOut();
+    }
+
+    function _transferExact(address receiver, uint256 assets)
+        private
+        returns (uint256 assetsReceived)
+    {
+        uint256 adapterBefore = _asset.balanceOf(address(this));
+        uint256 receiverBefore = _asset.balanceOf(receiver);
+        _asset.safeTransfer(receiver, assets);
+        uint256 adapterAfter = _asset.balanceOf(address(this));
+        uint256 receiverAfter = _asset.balanceOf(receiver);
+        if (
+            adapterAfter > adapterBefore || adapterBefore - adapterAfter != assets
+                || receiverAfter < receiverBefore || receiverAfter - receiverBefore != assets
+        ) revert AssetDeltaMismatch();
+        return assets;
     }
 }
