@@ -6,18 +6,21 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {IStrategyAdapterV2} from "../interfaces/IStrategyAdapterV2.sol";
+import {IStrategyRecoveryV2} from "../interfaces/IStrategyRecoveryV2.sol";
 import {IUpshiftVaultV2} from "../interfaces/IUpshiftVaultV2.sol";
 
 /// @notice UpshiftAdapterV2 holds underlying and Upshift LP shares and provides read-only
 /// valuation views, composed deposit preview, protocol status, and a conservative bounded
 /// liquidity search and measured Router-only execution.
-contract UpshiftAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
+contract UpshiftAdapterV2 is IStrategyAdapterV2, IStrategyRecoveryV2, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     IERC20 private immutable _asset;
     address public immutable router;
     IUpshiftVaultV2 private immutable _protocol;
     IERC20 private immutable _lpToken;
+
+    bool public positionRecovered;
 
     /// @notice Maximum binary-search iterations for the liquidity probe.
     uint256 public constant MAX_SEARCH_ITERATIONS = 64;
@@ -50,6 +53,9 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
     error ResidualShares();
     error AssetAllowanceNotCleared();
     error LPAllowanceCreated();
+    error ZeroPosition();
+    error PositionRecovered();
+    error RecoveryDeltaMismatch();
 
     event LiquidWithdrawn(uint256 requestedAssets, uint256 actualAssetsReceived);
     event Deposited(
@@ -73,6 +79,7 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
         uint256 actualAssetsReceived,
         uint256 rawInstantRedemptionFee
     );
+    event EmergencyPositionRecovered(address indexed token, uint256 amount, address receiver);
 
     constructor(IERC20 asset_, address router_, IUpshiftVaultV2 protocol_, IERC20 lpToken_) {
         if (address(asset_) == address(0)) revert ZeroAddress();
@@ -107,6 +114,7 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
     }
 
     function totalAssets() external view returns (uint256 netAssets) {
+        _requireOperational();
         _verifyBindings();
         uint256 direct = _asset.balanceOf(address(this));
         uint256 shares = _lpToken.balanceOf(address(this));
@@ -116,6 +124,7 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
     }
 
     function grossAssets() external view returns (uint256 grossAssets_) {
+        _requireOperational();
         _verifyBindings();
         uint256 direct = _asset.balanceOf(address(this));
         uint256 shares = _lpToken.balanceOf(address(this));
@@ -125,6 +134,7 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
     }
 
     function availableLiquidity() external view returns (uint256 netAssets) {
+        _requireOperational();
         _verifyBindings();
         uint256 direct = _asset.balanceOf(address(this));
         uint256 shares = _lpToken.balanceOf(address(this));
@@ -173,6 +183,7 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
             uint256 rawInstantRedemptionFee
         )
     {
+        _requireOperational();
         _verifyBindings();
         bool paused = _protocol.withdrawalsPaused();
         depositsEnabled = !paused;
@@ -194,6 +205,7 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
         view
         returns (uint256 shares, uint256 immediateNetValue)
     {
+        _requireOperational();
         _verifyBindings();
         (uint256 expectedShares, uint256 referenceAmount) =
             _protocol.previewDeposit(address(_asset), assets);
@@ -209,6 +221,7 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
         view
         returns (uint256 grossAssets_, uint256 netAssets)
     {
+        _requireOperational();
         _verifyBindings();
         if (shares == 0) return (0, 0);
         return _positionPreview(shares);
@@ -222,7 +235,7 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
         nonReentrant
         returns (uint256 assetsReceived)
     {
-        _verifyBindings();
+        if (!positionRecovered) _verifyBindings();
         if (assets == 0) revert ZeroAmount();
         if (_asset.balanceOf(address(this)) < assets) revert InsufficientBalance();
 
@@ -240,6 +253,7 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
         nonReentrant
         returns (uint256 sharesReceived)
     {
+        _requireOperational();
         _verifyBindings();
         if (assets == 0) revert ZeroAmount();
         if (_protocol.withdrawalsPaused()) revert ProtocolPaused();
@@ -256,6 +270,7 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
         _asset.forceApprove(address(_protocol), actualAssetsReceived);
         _protocol.deposit(address(_asset), actualAssetsReceived, address(this));
         _asset.forceApprove(address(_protocol), 0);
+        _verifyBindings();
         uint256 lpAfter = _lpToken.balanceOf(address(this));
         if (lpAfter <= lpBefore) revert ZeroSharesReceived();
         sharesReceived = lpAfter - lpBefore;
@@ -271,11 +286,13 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
         nonReentrant
         returns (uint256 assetsReceived)
     {
+        _requireOperational();
         (uint256 previewedNet, uint256 rawFee) = _prepareRedemption(shares);
         uint256 directBefore = _asset.balanceOf(address(this));
         uint256 lpBefore = _lpToken.balanceOf(address(this));
 
         _protocol.instantRedeem(shares, address(this));
+        _verifyBindings();
 
         uint256 lpAfter = _lpToken.balanceOf(address(this));
         if (lpAfter > lpBefore || lpBefore - lpAfter != shares) revert ShareDeltaMismatch();
@@ -300,6 +317,7 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
         nonReentrant
         returns (uint256 assetsReceived)
     {
+        _requireOperational();
         _verifyBindings();
         uint256 shares = _lpToken.balanceOf(address(this));
         uint256 directBefore = _asset.balanceOf(address(this));
@@ -311,6 +329,7 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
         if (shares > 0) {
             (previewedNet, rawFee) = _prepareRedemption(shares);
             _protocol.instantRedeem(shares, address(this));
+            _verifyBindings();
             uint256 lpAfter = _lpToken.balanceOf(address(this));
             if (lpAfter > shares || shares - lpAfter != shares) revert ShareDeltaMismatch();
             sharesBurned = shares;
@@ -330,11 +349,41 @@ contract UpshiftAdapterV2 is IStrategyAdapterV2, ReentrancyGuard {
         emit RedeemedAll(shares, previewedNet, sharesBurned, assetsReceived, rawFee);
     }
 
+    function recoverPosition(address receiver)
+        external
+        onlyRouter
+        nonReentrant
+        returns (uint256 sharesRecovered)
+    {
+        if (positionRecovered) revert PositionRecovered();
+        if (receiver == address(0)) revert ZeroAddress();
+        uint256 adapterBefore = _lpToken.balanceOf(address(this));
+        if (adapterBefore == 0) revert ZeroPosition();
+        uint256 receiverBefore = _lpToken.balanceOf(receiver);
+
+        _lpToken.safeTransfer(receiver, adapterBefore);
+
+        uint256 adapterAfter = _lpToken.balanceOf(address(this));
+        uint256 receiverAfter = _lpToken.balanceOf(receiver);
+        if (
+            adapterAfter > adapterBefore || adapterBefore - adapterAfter != adapterBefore
+                || receiverAfter < receiverBefore || receiverAfter - receiverBefore != adapterBefore
+        ) revert RecoveryDeltaMismatch();
+        sharesRecovered = adapterBefore;
+        positionRecovered = true;
+        _assertNoAllowances();
+        emit EmergencyPositionRecovered(address(_lpToken), sharesRecovered, receiver);
+    }
+
     // ---- Internal helpers ----
 
     function _verifyBindings() internal view {
         if (_protocol.asset() != address(_asset)) revert AssetBindingMismatch();
         if (_protocol.lpTokenAddress() != address(_lpToken)) revert LPBindingMismatch();
+    }
+
+    function _requireOperational() internal view {
+        if (positionRecovered) revert PositionRecovered();
     }
 
     function _prepareRedemption(uint256 shares)
