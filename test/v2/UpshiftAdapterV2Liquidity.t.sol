@@ -272,6 +272,40 @@ contract UpshiftAdapterV2LiquidityTest is Test {
         adapter.availableLiquidity();
     }
 
+    function testWorstCasePerformsFinalVerificationAsProbe64() external {
+        uint256 largeShares = 1 << 128;
+        uint256 limit = largeShares / 2;
+        uint256 direct = 777;
+        uint256 expectedBestShares = _expectedBestSharesAfterBoundedSearch(largeShares, limit);
+        (, uint256 expectedBestNet) = protocol.previewRedemption(expectedBestShares, true);
+
+        asset.mint(address(adapter), direct);
+        seedPosition(largeShares);
+        protocol.setMaxWithdrawalReferenceAmount(limit);
+
+        uint256 assetBefore = asset.balanceOf(address(adapter));
+        uint256 lpBefore = lp.balanceOf(address(adapter));
+        vm.expectCall(
+            address(protocol), abi.encodePacked(IUpshiftVaultV2.previewRedemption.selector), 64
+        );
+        vm.expectCall(
+            address(protocol),
+            abi.encodeWithSelector(
+                IUpshiftVaultV2.previewRedemption.selector, expectedBestShares, true
+            ),
+            2
+        );
+
+        uint256 liquidity = adapter.availableLiquidity();
+
+        assertEq(liquidity, direct + expectedBestNet);
+        assertLe(expectedBestNet, limit);
+        assertEq(asset.balanceOf(address(adapter)), assetBefore);
+        assertEq(lp.balanceOf(address(adapter)), lpBefore);
+        assertEq(asset.allowance(address(adapter), address(protocol)), 0);
+        assertEq(lp.allowance(address(adapter), address(protocol)), 0);
+    }
+
     function testMaxSearchIterationsIs64() external view {
         assertEq(adapter.MAX_SEARCH_ITERATIONS(), 64);
         assertEq(adapter.MAX_TOTAL_REDEMPTION_PREVIEWS(), 64);
@@ -360,5 +394,23 @@ contract UpshiftAdapterV2LiquidityTest is Test {
         // Verify the returned value equals the net at the found shares.
         (, uint256 net5000) = protocol.previewRedemption(5000, true);
         assertEq(liq, net5000);
+    }
+
+    function _expectedBestSharesAfterBoundedSearch(uint256 shares, uint256 limit)
+        internal
+        pure
+        returns (uint256 bestShares)
+    {
+        uint256 lo = 1;
+        uint256 hi = shares;
+        for (uint256 i = 0; i < 62; i++) {
+            uint256 mid = lo + (hi - lo + 1) / 2;
+            if (mid <= limit) {
+                bestShares = mid;
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
     }
 }

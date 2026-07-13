@@ -286,7 +286,7 @@ Current Gate 4B third-repair feature-branch baseline:
 
 ```text
 Vitest:   163 passed (96 local-signer, 67 integration)
-Foundry:  301 passed
+Foundry:  302 passed
 Typecheck: pass
 Forge fmt: clean
 Forge build: clean
