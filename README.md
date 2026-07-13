@@ -119,16 +119,19 @@ still in progress. The following are not on `main` yet:
 - no plaintext intent onchain
 - no production private key in the repository
 
-### In progress / designed
+### Implemented on the Gate 4B feature branch
 
-- net-liquidation NAV
-- liquidity-first withdrawals
-- differential rebalancing
 - dynamic fee-aware accounting
 - direct underlying accounting
 - exact allowance cleanup
 - balance-delta reconciliation
 - paused / illiquid fail-closed behavior
+
+### In progress / designed
+
+- net-liquidation NAV integration in RouterV2 and SignalVaultV2
+- liquidity-first vault withdrawals
+- differential rebalancing
 - independent V2 Adapter / Router / Vault deployment
 
 ---
@@ -140,9 +143,10 @@ still in progress. The following are not on `main` yet:
 | P0 personal vault                  | Completed                                    |
 | Local signer boundary              | Completed                                    |
 | EIP-712 V2 verifier and fixture    | Completed                                    |
-| Gate 4B Adapter V2 foundations     | Reviewed feature branch, pending integration |
-| IdleAdapterV2                      | Not started                                  |
-| UpshiftAdapterV2                   | Not started                                  |
+| Gate 4B Tasks 1–6                  | Implementation and final repair complete     |
+| Gate 4B full-branch rereview       | Pending                                      |
+| IdleAdapterV2                      | Implemented, repaired, not deployed          |
+| UpshiftAdapterV2                   | Implemented, repaired, not deployed          |
 | StrategyRouterV2                   | Not started                                  |
 | SignalVaultV2                       | Not started                                  |
 | V2 Anvil E2E                        | Not started                                  |
@@ -259,20 +263,30 @@ npm run e2e:anvil --workspace local-signer
 ```bash
 npm run upshift:smoke:coston2 --workspace integration
 npm run upshift:economics:coston2 --workspace integration
+npm run verify:upshift-limit:coston2:pinned
 ```
 
-The Coston2 commands require a locally configured `COSTON2_PRIVATE_KEY` for the
-single real round trip; the preview sweep is private-key-free.
+The fixed read-only evidence command uses Coston2 block `32788892` and requires
+no wallet or private key. It deterministically regenerates
+`reports/upshift-withdrawal-limit-semantics.json`; the expected SHA-256 is
+`7E72A91F7F9C8B1BFC13D4F3B47B39F726880C3F5A213E547BEE3EC7A1CF6C3A`.
+No write transaction is broadcast. The report intentionally retains
+`UNRESOLVED` withdrawal-limit semantics and an `INSUFFICIENT_EVIDENCE` adapter
+assessment.
+
+The smoke/economics commands include the separately invoked historical testnet
+round trip and require a locally configured `COSTON2_PRIVATE_KEY`. Never commit
+that value.
 
 ---
 
 ## Testing
 
-Baseline on `main` (commit `81809db`):
+Current Gate 4B final-repair feature-branch baseline:
 
 ```text
-Vitest:   118 passed (96 local-signer, 22 integration)
-Foundry:   79 passed
+Vitest:   157 passed (96 local-signer, 61 integration)
+Foundry:  288 passed
 Typecheck: pass
 Forge fmt: clean
 Forge build: clean
@@ -349,6 +363,9 @@ Frontend private/public evidence views
 - protocol fees / configurations may change
 - SignalVault V2 is not yet deployed
 - unsupported strategies remain disabled
+- after `positionRecovered` becomes true, recovery cannot be invoked again;
+  LP tokens sent to that adapter afterward may be permanently locked, so Router
+  and operational flows must never send new LP tokens to a recovered adapter
 
 ---
 
