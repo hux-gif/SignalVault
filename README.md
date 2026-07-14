@@ -77,7 +77,7 @@ Aggregate allocation weights are public; they are not in the private column.
 | salted commitment        | `computeIntentCommitment` binds user, salt, nonce and chainId       |
 | resultHash               | Canonical EIP-712 result hash for onchain replay protection          |
 | golden fixtures          | Cross-language V1/V2 fixtures pinned to deterministic Anvil state   |
-| Foundry tests            | P0 contract behavior and V2 verifier fixtures                       |
+| Foundry tests            | P0 behavior plus V2 verifier, adapter and StrategyRouterV2 suites   |
 | Anvil integration        | `local-signer` end-to-end against a local Anvil node                |
 | Coston2 Upshift scripts  | Read-only probes plus one real round trip against the live protocol |
 
@@ -226,7 +226,7 @@ Coston2 (chainId 114):  not deployed yet.
 Clone with pinned Solidity dependencies:
 
 ```bash
-git clone --recurse-submodules https://github.com/hux-gif/SignalVault.git
+git clone --branch signalvault-final --recurse-submodules https://github.com/hux-gif/SignalVault.git
 ```
 
 For an existing clone:

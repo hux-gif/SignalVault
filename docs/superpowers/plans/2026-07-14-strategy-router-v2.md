@@ -255,7 +255,7 @@ Expected failure: accounting selectors are absent or still revert from Task 1 st
 
 - [ ] **Implement minimal accounting views.**
 
-Calculate Router direct from `asset.balanceOf(address(this))`. Calculate Upshift direct from `asset.balanceOf(upshiftAdapter)`. Require adapter-reported net and gross totals to be at least that direct amount before subtracting it into position-only values. Use net values for `totalAssets`, gross values only for `grossAssets`, and adapter `availableLiquidity` for liquidity. In recovered state, do not call Upshift normal views; count only observed direct underlying. `allocation()` returns zero BPS when total net NAV is zero and otherwise uses `Math.mulDiv(positionValue, 10_000, totalNetNAV)` with floor rounding.
+Calculate Router direct from `asset.balanceOf(address(this))`. Calculate Upshift direct from `asset.balanceOf(upshiftAdapter)`. Require adapter-reported net and gross totals to be at least that direct amount before subtracting it into position-only values. Use net values for `totalAssets` and gross values only for `grossAssets`. For liquidity, use the Upshift adapter's `availableLiquidity()` only while `Operational`, contribute zero while `UpshiftUnavailable`, and count only observed direct underlying while `UpshiftRecovered`; the frozen ABI cannot prove that direct underlying is withdrawable when bindings are unavailable or unverifiable. In recovered state, do not call Upshift normal views. `allocation()` returns zero BPS when total net NAV is zero and otherwise uses `Math.mulDiv(positionValue, 10_000, totalNetNAV)` with floor rounding.
 
 - [ ] **Run the exact GREEN command.**
 
