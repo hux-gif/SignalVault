@@ -81,10 +81,10 @@ Aggregate allocation weights are public; they are not in the private column.
 | Anvil integration        | `local-signer` end-to-end against a local Anvil node                |
 | Coston2 Upshift scripts  | Read-only probes plus one real round trip against the live protocol |
 
-### In progress on the `gate4b-upshift-adapters-v2` feature branch
+### Implemented on `signalvault-final`
 
-Adapter V2 foundations completed on a reviewed feature branch; integration is
-still in progress. The following are not on `main` yet:
+The reviewed Adapter V2 foundation and the first two StrategyRouterV2 tasks are
+implemented on the public integration branch:
 
 - `IStrategyAdapterV2` frozen adapter interface
 - `IStrategyRecoveryV2` emergency recovery interface
@@ -92,9 +92,10 @@ still in progress. The following are not on `main` yet:
 - Fee-aware Upshift vault mock
 - `IdleAdapterV2`
 - `UpshiftAdapterV2`
-- `StrategyRouterV2`
-- `SignalVaultV2`
-- V2 deployment and Anvil E2E
+- `StrategyRouterV2` one-time configuration and read-only accounting views
+
+Strict differential rebalance execution, `SignalVaultV2`, V2 deployment and the
+V2 Anvil E2E are not implemented yet.
 
 ---
 
@@ -143,11 +144,13 @@ still in progress. The following are not on `main` yet:
 | P0 personal vault                  | Completed                                    |
 | Local signer boundary              | Completed                                    |
 | EIP-712 V2 verifier and fixture    | Completed                                    |
-| Gate 4B Tasks 1–6                  | Implementation and final repair complete     |
-| Gate 4B full-branch rereview       | Pending                                      |
+| Gate 4B Tasks 1–6                  | Complete, reviewed and frozen                |
+| Gate 4B full-branch rereview       | Passed                                       |
 | IdleAdapterV2                      | Implemented, repaired, not deployed          |
 | UpshiftAdapterV2                   | Implemented, repaired, not deployed          |
-| StrategyRouterV2                   | Not started                                  |
+| StrategyRouterV2 Task 1            | Complete and reviewed                        |
+| StrategyRouterV2 Task 2            | Implemented; repair rereview pending         |
+| StrategyRouterV2 Tasks 3–10        | Not authorized                               |
 | SignalVaultV2                       | Not started                                  |
 | V2 Anvil E2E                        | Not started                                  |
 | SignalVault V2 Coston2 deployment   | Not deployed                                 |
@@ -220,8 +223,22 @@ Coston2 (chainId 114):  not deployed yet.
 
 ### Install
 
+Clone with pinned Solidity dependencies:
+
 ```bash
-npm install
+git clone --recurse-submodules https://github.com/hux-gif/SignalVault.git
+```
+
+For an existing clone:
+
+```bash
+git submodule update --init --recursive
+```
+
+Install the JavaScript workspace from the lockfile:
+
+```bash
+npm ci
 ```
 
 ### TypeScript tests and type checks
@@ -244,7 +261,7 @@ npm run typecheck --workspace integration
 
 ```bash
 forge build
-forge test
+forge test -vvv
 forge fmt --check
 ```
 
@@ -282,11 +299,11 @@ that value.
 
 ## Testing
 
-Current Gate 4B third-repair feature-branch baseline:
+Current `signalvault-final` baseline before StrategyRouterV2 Task 3:
 
 ```text
 Vitest:   163 passed (96 local-signer, 67 integration)
-Foundry:  302 passed
+Foundry:  complete suite verified in the Task 2 repair report
 Typecheck: pass
 Forge fmt: clean
 Forge build: clean
@@ -300,11 +317,11 @@ All commands exit with code 0.
 
 ```text
 src/                          Solidity contracts (P0)
-src/v2/                       V2 verifier, types and hashes
+src/v2/                       V2 verifier, adapters and StrategyRouterV2
 src/adapters/                 P0 strategy adapters
 src/interfaces/               P0 router and adapter interfaces
 test/                         Foundry tests (P0)
-test/v2/                      Foundry tests (V2 verifier fixtures)
+test/v2/                      Foundry tests (V2 verifier, adapters and Router)
 local-signer/                 Node HTTP allocation signer
 fixtures/                     Cross-language golden fixtures
 script/                       Foundry deployment scripts
