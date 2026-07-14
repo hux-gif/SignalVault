@@ -22,6 +22,7 @@ contract StrategyRouterV2BindingDriftTest is Test {
     UpshiftAdapterV2 internal upshift;
 
     address internal owner = address(0xA11CE);
+
     function setUp() public {
         asset = new MockLPTokenV2("Mock FXRP", "mFXRP", 6);
         lpToken = new MockLPTokenV2("Mock Upshift LP", "mULP", 6);
