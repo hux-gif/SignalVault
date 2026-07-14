@@ -143,7 +143,7 @@ contract StrategyRouterV2AccountingTest is Test {
         assertEq(uint256(router.strategyState()), uint256(RouterStateV2.UpshiftRecovered));
     }
 
-    function testUnavailableUpshiftLiquidityUsesOnlyFeeFreeDirectUnderlying() external {
+    function testUnavailableUpshiftLiquidityUsesOnlyProvablyWithdrawableTiers() external {
         _freezeRouter();
         asset.mint(address(router), 10);
         idle.setPositionValues(100, 100, 60, 100);
@@ -151,7 +151,7 @@ contract StrategyRouterV2AccountingTest is Test {
         upshift.setPositionValues(100, 100, 20, 100);
         upshift.setStatus(true, false);
 
-        assertEq(router.availableLiquidity(), 75);
+        assertEq(router.availableLiquidity(), 70);
     }
 
     function testZeroNavReturnsZeroAllocationAndMakesNoStateChangingCalls() external view {

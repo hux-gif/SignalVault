@@ -223,7 +223,7 @@ enum RouterStateV2 {
 
 `Operational` means local execution is not paused, adapter configuration is frozen, the Upshift adapter is not recovered, and its live status reports deposits and withdrawals enabled with valid bindings.
 
-`UpshiftUnavailable` means the Router is locally paused or the non-recovered Upshift adapter reports unavailable status or cannot supply required preview/status data. This state is reversible only by restoring live conditions and unpausing through SignalVaultV2 authorization.
+`UpshiftUnavailable` means the Router is locally paused or the non-recovered Upshift adapter reports unavailable status or cannot supply required preview/status data. The frozen adapter interface does not distinguish valid-but-paused bindings from invalid or unverifiable bindings. Therefore Router `availableLiquidity()` treats the Upshift contribution as zero in this state: liquidity is a provable immediately withdrawable lower bound, while ownership remains represented by net/gross NAV when trustworthy adapter valuation succeeds. This state is reversible only by restoring live conditions and unpausing through SignalVaultV2 authorization.
 
 `UpshiftRecovered` is permanent after successful LP-position recovery. Normal Upshift valuation, deposits, redemptions, and rebalance targets are disabled. Direct underlying held by the recovered adapter remains withdrawable through `withdrawLiquid` and is counted from the underlying token balance directly.
 
@@ -775,7 +775,7 @@ External adapter errors may propagate when they identify the exact failed frozen
 |---|---|---|---|
 | `totalAssets` | Router + Idle + Upshift net | succeeds only if Upshift net preview remains trustworthy; otherwise reverts | Router + Idle + Upshift direct underlying |
 | `grossAssets` | Router + Idle + Upshift gross | succeeds only if gross preview remains trustworthy; otherwise reverts | Router + Idle + Upshift direct underlying |
-| `availableLiquidity` | full verified waterfall capacity | Router + Idle + Upshift direct underlying only | Router + Idle + Upshift direct underlying only |
+| `availableLiquidity` | full verified waterfall capacity | Router + Idle only; frozen ABI cannot prove Upshift direct underlying passes `withdrawLiquid` binding checks | Router + Idle + Upshift direct underlying only |
 | `previewRebalance` | exact plan or explicit blocker | `feasible = false` | zero-Upshift target remains forbidden; `feasible = false` |
 | `rebalance` | executes strict plan | reverts | reverts |
 | `withdrawToVault` | complete waterfall | succeeds through fee-free tiers; reverts if LP redemption is required | succeeds through Router, Idle, and recovered-adapter direct underlying |

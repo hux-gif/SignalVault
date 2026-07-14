@@ -171,12 +171,15 @@ contract StrategyRouterV2 {
         uint256 idleDirect = asset.balanceOf(idleAdapter);
         uint256 idleLiquidity = IStrategyAdapterV2(idleAdapter).availableLiquidity();
         uint256 upshiftDirect = asset.balanceOf(upshiftAdapter);
-        uint256 upshiftLiquidity = strategyState() == RouterStateV2.Operational
-            ? IStrategyAdapterV2(upshiftAdapter).availableLiquidity()
-            : upshiftDirect;
-        if (idleLiquidity < idleDirect || upshiftLiquidity < upshiftDirect) {
-            revert AdapterDeltaMismatch();
+        RouterStateV2 state = strategyState();
+        uint256 upshiftLiquidity;
+        if (state == RouterStateV2.Operational) {
+            upshiftLiquidity = IStrategyAdapterV2(upshiftAdapter).availableLiquidity();
+            if (upshiftLiquidity < upshiftDirect) revert AdapterDeltaMismatch();
+        } else if (state == RouterStateV2.UpshiftRecovered) {
+            upshiftLiquidity = upshiftDirect;
         }
+        if (idleLiquidity < idleDirect) revert AdapterDeltaMismatch();
 
         return routerDirect + idleLiquidity + upshiftLiquidity;
     }
