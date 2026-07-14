@@ -220,7 +220,7 @@ git commit -m "feat: configure strategy router v2"
 
 - `totalAssets`, `grossAssets`, `availableLiquidity`, `allocation`, and `strategyState`.
 - Instrumented adapter setters `setPositionValues(uint256 net,uint256 gross,uint256 liquidity,uint256 shares)`, `setStatus(bool deposits,bool withdrawals)`, `setPreviewReverts(bool)`, `setDepositPreview(uint256 assets,uint256 shares,uint256 immediateNet)`, `setRedeemPreview(uint256 shares,uint256 gross,uint256 net)`, `setDepositExecution(uint256 routerDebit,uint256 adapterCredit,uint256 sharesMinted,uint256 returnedShares)`, and `setWithdrawalExecution(uint256 adapterDebit,uint256 routerCredit,uint256 returnedAssets)`.
-- Instrumented adapter getters `depositCallCount`, `withdrawLiquidCallCount`, `redeemCallCount`, `redeemAllCallCount`, `stateChangingCallCount`, `previewDepositCallCount`, `previewRedeemCallCount`, `lastDepositAssets`, `lastDepositMinSharesOut`, `lastWithdrawLiquidAssets`, `lastRedeemShares`, and `lastRedeemMinAssetsOut`, plus `resetCallCounters()`.
+- Instrumented adapter getters `depositCallCount`, `withdrawLiquidCallCount`, `redeemCallCount`, `redeemAllCallCount`, `stateChangingCallCount`, `lastDepositAssets`, `lastDepositMinSharesOut`, `lastWithdrawLiquidAssets`, `lastRedeemShares`, and `lastRedeemMinAssetsOut`, plus `resetCallCounters()`. View-call bounds for `previewDeposit` and `previewRedeem` are asserted with `vm.expectCall`, Foundry call recording, or execution traces; a `STATICCALL`-reachable view mock must not attempt to update storage counters.
 
 ### Steps
 
@@ -313,7 +313,7 @@ git commit -m "feat: add router v2 accounting views"
 
 - `previewRebalance(target, limits)`.
 - One shared internal `_computeRebalancePlan(target, limits)` used later by `rebalance`.
-- Instrumented deterministic preview curves and per-selector call counters.
+- Instrumented deterministic preview curves and state-changing per-selector call counters. Preview view-call counts are certified with `vm.expectCall`, Foundry call recording, or execution traces rather than storage mutation from `STATICCALL`.
 
 ### Steps
 
