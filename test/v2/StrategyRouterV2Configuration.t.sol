@@ -176,6 +176,24 @@ contract StrategyRouterV2ConfigurationTest is Test {
         router.configureAdapters(address(wrong), address(idle));
     }
 
+    function testConfigureAdaptersRejectsIdleAssetMismatch() public {
+        MockLPTokenV2 wrongAsset = new MockLPTokenV2("Wrong Idle Asset", "WIA", 6);
+        RouterBindingAdapterMockV2 wrongIdle =
+            new RouterBindingAdapterMockV2(address(wrongAsset), address(router), address(asset));
+
+        assertEq(wrongIdle.asset(), address(wrongAsset));
+        assertEq(wrongIdle.positionToken(), address(asset));
+        assertEq(wrongIdle.router(), address(router));
+
+        vm.prank(owner);
+        vm.expectRevert(StrategyRouterV2.AdapterAssetMismatch.selector);
+        router.configureAdapters(address(upshift), address(wrongIdle));
+
+        assertEq(router.upshiftAdapter(), address(0));
+        assertEq(router.idleAdapter(), address(0));
+        assertFalse(router.configurationFrozen());
+    }
+
     function testRejectsAdapterBoundToAnotherRouter() external {
         RouterBindingAdapterMockV2 wrong =
             new RouterBindingAdapterMockV2(address(asset), address(0xB0B), address(lpToken));
@@ -183,6 +201,23 @@ contract StrategyRouterV2ConfigurationTest is Test {
         vm.prank(owner);
         vm.expectRevert(StrategyRouterV2.AdapterRouterMismatch.selector);
         router.configureAdapters(address(wrong), address(idle));
+    }
+
+    function testConfigureAdaptersRejectsIdleRouterMismatch() public {
+        RouterBindingAdapterMockV2 wrongIdle =
+            new RouterBindingAdapterMockV2(address(asset), address(0xB0B), address(asset));
+
+        assertEq(wrongIdle.asset(), address(asset));
+        assertEq(wrongIdle.positionToken(), address(asset));
+        assertTrue(wrongIdle.router() != address(router));
+
+        vm.prank(owner);
+        vm.expectRevert(StrategyRouterV2.AdapterRouterMismatch.selector);
+        router.configureAdapters(address(upshift), address(wrongIdle));
+
+        assertEq(router.upshiftAdapter(), address(0));
+        assertEq(router.idleAdapter(), address(0));
+        assertFalse(router.configurationFrozen());
     }
 
     function testRejectsIdlePositionTokenThatIsNotUnderlying() external {
