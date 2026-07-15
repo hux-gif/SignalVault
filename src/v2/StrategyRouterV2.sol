@@ -48,6 +48,14 @@ contract StrategyRouterV2 is ReentrancyGuard {
         uint16 previewDeviationBps;
     }
 
+    struct WithdrawalReceiptV2 {
+        uint256 routerDirectUsed;
+        uint256 idleAssetsUsed;
+        uint256 upshiftDirectUsed;
+        uint256 upshiftSharesRedeemed;
+        uint256 upshiftAssetsReceived;
+    }
+
     IERC20 public immutable asset;
     address public immutable vaultOwner;
 
@@ -87,6 +95,19 @@ contract StrategyRouterV2 is ReentrancyGuard {
     error AllocationToleranceExceeded();
     error MinimumPostNAVNotMet(uint256 minimum, uint256 actual);
     error RebalanceLossExceeded(uint256 maximumLoss, uint256 actualLoss);
+    error InsufficientLiquidity(uint256 requested, uint256 available);
+    error ResidualAssets();
+    error ResidualPosition();
+
+    event AssetsWithdrawnToVault(
+        uint256 requestedAssets,
+        uint256 deliveredAssets,
+        uint256 routerDirectUsed,
+        uint256 idleAssetsUsed,
+        uint256 upshiftDirectUsed,
+        uint256 upshiftSharesRedeemed,
+        uint256 upshiftAssetsReceived
+    );
 
     modifier onlyVault() {
         if (msg.sender != vault) revert OnlyVault();
@@ -289,11 +310,13 @@ contract StrategyRouterV2 is ReentrancyGuard {
         uint256 positionSharesBefore = IStrategyAdapterV2(upshiftAdapter).positionShares();
 
         if (plan.upshiftLiquidWithdrawAssets != 0) {
-            _withdrawUpshiftLiquid(plan.upshiftLiquidWithdrawAssets);
+            _withdrawLiquid(upshiftAdapter, plan.upshiftLiquidWithdrawAssets);
         }
 
         if (plan.upshiftDepositAssets != 0) {
-            if (plan.idleWithdrawAssets != 0) _withdrawIdle(plan.idleWithdrawAssets);
+            if (plan.idleWithdrawAssets != 0) {
+                _withdrawLiquid(idleAdapter, plan.idleWithdrawAssets);
+            }
             _depositUpshift(
                 plan.upshiftDepositAssets,
                 plan.previewedUpshiftSharesOut,
@@ -310,7 +333,9 @@ contract StrategyRouterV2 is ReentrancyGuard {
             );
             if (plan.idleDepositAssets != 0) _depositIdle(plan.idleDepositAssets);
         } else {
-            if (plan.idleWithdrawAssets != 0) _withdrawIdle(plan.idleWithdrawAssets);
+            if (plan.idleWithdrawAssets != 0) {
+                _withdrawLiquid(idleAdapter, plan.idleWithdrawAssets);
+            }
             if (plan.idleDepositAssets != 0) _depositIdle(plan.idleDepositAssets);
         }
 
@@ -350,21 +375,240 @@ contract StrategyRouterV2 is ReentrancyGuard {
         }
     }
 
-    function _withdrawUpshiftLiquid(uint256 assets) private {
-        uint256 routerBefore = asset.balanceOf(address(this));
-        uint256 adapterBefore = asset.balanceOf(upshiftAdapter);
+    function withdrawToVault(uint256 assets_)
+        external
+        onlyVault
+        nonReentrant
+        returns (uint256 assetsDelivered)
+    {
+        uint256 aggregateLiquidity = this.availableLiquidity();
+        if (assets_ > aggregateLiquidity) {
+            _insufficient(assets_, aggregateLiquidity);
+        }
 
-        uint256 reportedAssets = IStrategyAdapterV2(upshiftAdapter).withdrawLiquid(assets);
+        WithdrawalReceiptV2 memory receipt;
+        uint256 remaining = assets_;
+        uint256 routerDirect = asset.balanceOf(address(this));
+        receipt.routerDirectUsed = Math.min(routerDirect, remaining);
+        remaining -= receipt.routerDirectUsed;
+
+        if (remaining != 0) {
+            uint256 idleLiquidity = IStrategyAdapterV2(idleAdapter).availableLiquidity();
+            receipt.idleAssetsUsed = Math.min(idleLiquidity, remaining);
+            if (receipt.idleAssetsUsed != 0) {
+                _withdrawLiquid(idleAdapter, receipt.idleAssetsUsed);
+                remaining -= receipt.idleAssetsUsed;
+            }
+        }
+
+        RouterStateV2 state = strategyState();
+        if (remaining != 0 && state != RouterStateV2.UpshiftUnavailable) {
+            uint256 upshiftDirect = asset.balanceOf(upshiftAdapter);
+            receipt.upshiftDirectUsed = Math.min(upshiftDirect, remaining);
+            if (receipt.upshiftDirectUsed != 0) {
+                _withdrawLiquid(upshiftAdapter, receipt.upshiftDirectUsed);
+                remaining -= receipt.upshiftDirectUsed;
+            }
+        }
+
+        if (remaining != 0) {
+            if (state != RouterStateV2.Operational) {
+                _insufficient(assets_, assets_ - remaining);
+            }
+            (receipt.upshiftSharesRedeemed, receipt.upshiftAssetsReceived) =
+                _withdrawUpshiftPosition(remaining);
+            remaining = 0;
+        }
+
+        assetsDelivered = _transferToVaultExact(assets_);
+        emit AssetsWithdrawnToVault(
+            assets_,
+            assetsDelivered,
+            receipt.routerDirectUsed,
+            receipt.idleAssetsUsed,
+            receipt.upshiftDirectUsed,
+            receipt.upshiftSharesRedeemed,
+            receipt.upshiftAssetsReceived
+        );
+    }
+
+    function withdrawAllToVault()
+        external
+        onlyVault
+        nonReentrant
+        returns (uint256 assetsDelivered)
+    {
+        uint256 routerDirect = asset.balanceOf(address(this));
+        uint256 idleUnderlying = asset.balanceOf(idleAdapter);
+        uint256 idleAssetsReceived;
+        if (idleUnderlying != 0) {
+            idleAssetsReceived = _redeemAllAdapter(idleAdapter, 0);
+        }
+
+        uint256 upshiftShares = IStrategyAdapterV2(upshiftAdapter).positionShares();
+        uint256 upshiftDirect = asset.balanceOf(upshiftAdapter);
+        uint256 sharesRedeemed;
+        uint256 upshiftPositionReceived;
+        if (upshiftShares != 0) {
+            if (strategyState() != RouterStateV2.Operational) {
+                _insufficient(upshiftShares, 0);
+            }
+            uint256 netAssets = _previewRedeemNet(upshiftShares, 0);
+            uint256 minAssetsOut = _previewMinimum(netAssets);
+            uint256 upshiftTotalReceived = _redeemAllAdapter(upshiftAdapter, minAssetsOut);
+            upshiftPositionReceived = upshiftTotalReceived - upshiftDirect;
+            sharesRedeemed = upshiftShares;
+        } else if (upshiftDirect != 0) {
+            _withdrawLiquid(upshiftAdapter, upshiftDirect);
+        }
+
+        if (asset.balanceOf(idleAdapter) != 0 || asset.balanceOf(upshiftAdapter) != 0) {
+            revert ResidualAssets();
+        }
+        if (
+            IStrategyAdapterV2(idleAdapter).positionShares() != 0
+                || IStrategyAdapterV2(upshiftAdapter).positionShares() != 0
+        ) revert ResidualPosition();
+
+        uint256 totalAssetsRecovered = asset.balanceOf(address(this));
+        assetsDelivered = _transferToVaultExact(totalAssetsRecovered);
+        emit AssetsWithdrawnToVault(
+            totalAssetsRecovered,
+            assetsDelivered,
+            routerDirect,
+            idleAssetsReceived,
+            upshiftDirect,
+            sharesRedeemed,
+            upshiftPositionReceived
+        );
+    }
+
+    function _withdrawUpshiftPosition(uint256 deficit)
+        private
+        returns (uint256 sharesRedeemed, uint256 assetsReceived)
+    {
+        uint256 heldShares = IStrategyAdapterV2(upshiftAdapter).positionShares();
+        uint256 directAssets = asset.balanceOf(upshiftAdapter);
+        uint256 totalNet = IStrategyAdapterV2(upshiftAdapter).totalAssets();
+        if (heldShares == 0 || totalNet <= directAssets) _insufficient(deficit, 0);
+
+        uint256 available = IStrategyAdapterV2(upshiftAdapter).availableLiquidity();
+        if (available < directAssets) revert AdapterDeltaMismatch();
+        uint256 previewedNet;
+        (sharesRedeemed, previewedNet) = _selectWithdrawalCandidate(
+            heldShares, deficit, totalNet - directAssets, available - directAssets
+        );
+
+        uint256 minAssetsOut = _previewMinimum(previewedNet);
+        uint256 routerBefore = asset.balanceOf(address(this));
+        _redeemUpshift(
+            sharesRedeemed,
+            previewedNet,
+            minAssetsOut,
+            _riskConfiguration.maximumPreviewDeviationBps
+        );
+        assetsReceived = asset.balanceOf(address(this)) - routerBefore;
+    }
+
+    function _selectWithdrawalCandidate(
+        uint256 heldShares,
+        uint256 deficit,
+        uint256 positionNet,
+        uint256 positionLiquidity
+    ) private view returns (uint256 candidateShares, uint256 previewedNet) {
+        candidateShares = Math.mulDiv(heldShares, deficit, positionNet, Math.Rounding.Ceil);
+        for (uint256 evaluation; evaluation < 2; ++evaluation) {
+            if (candidateShares == 0 || candidateShares > heldShares) {
+                _insufficient(deficit, positionLiquidity);
+            }
+            previewedNet = _previewRedeemNet(candidateShares, positionLiquidity);
+            if (previewedNet > positionLiquidity) {
+                _insufficient(previewedNet, positionLiquidity);
+            }
+            if (previewedNet >= deficit) return (candidateShares, previewedNet);
+            if (evaluation == 1) _insufficient(deficit, previewedNet);
+            uint256 refinedShares =
+                Math.mulDiv(candidateShares, deficit, previewedNet, Math.Rounding.Ceil);
+            if (refinedShares == candidateShares) _insufficient(deficit, previewedNet);
+            candidateShares = refinedShares;
+        }
+        _insufficient(deficit, previewedNet);
+    }
+
+    function _redeemAllAdapter(address adapter, uint256 minAssetsOut)
+        private
+        returns (uint256 assetsReceived)
+    {
+        uint256 routerBefore = asset.balanceOf(address(this));
+        uint256 reportedAssets = IStrategyAdapterV2(adapter).redeemAll(minAssetsOut);
+        return _reconcileRouterCredit(routerBefore, reportedAssets);
+    }
+
+    function _previewRedeemNet(uint256 shares, uint256 available)
+        private
+        view
+        returns (uint256 netAssets)
+    {
+        (uint256 grossAssets_, uint256 netAssets_) =
+            IStrategyAdapterV2(upshiftAdapter).previewRedeem(shares);
+        if (grossAssets_ == 0 || netAssets_ == 0 || netAssets_ > grossAssets_) {
+            _insufficient(shares, available);
+        }
+        return netAssets_;
+    }
+
+    function _previewMinimum(uint256 previewedNet) private view returns (uint256 minimum) {
+        minimum = Math.mulDiv(
+            previewedNet,
+            _BPS_DENOMINATOR - _riskConfiguration.maximumPreviewDeviationBps,
+            _BPS_DENOMINATOR
+        );
+        if (minimum == 0) _insufficient(previewedNet, 0);
+    }
+
+    function _insufficient(uint256 requested, uint256 available) private pure {
+        revert InsufficientLiquidity(requested, available);
+    }
+
+    function _transferToVaultExact(uint256 assets_) private returns (uint256 assetsDelivered) {
+        uint256 routerBefore = asset.balanceOf(address(this));
+        uint256 vaultBefore = asset.balanceOf(vault);
+        asset.safeTransfer(vault, assets_);
+        uint256 routerAfter = asset.balanceOf(address(this));
+        uint256 vaultAfter = asset.balanceOf(vault);
+        if (
+            routerAfter > routerBefore || routerBefore - routerAfter != assets_
+                || vaultAfter < vaultBefore || vaultAfter - vaultBefore != assets_
+        ) revert AssetDeltaMismatch();
+        return assets_;
+    }
+
+    function _withdrawLiquid(address adapter, uint256 assets) private {
+        uint256 routerBefore = asset.balanceOf(address(this));
+        uint256 adapterBefore = asset.balanceOf(adapter);
+
+        uint256 reportedAssets = IStrategyAdapterV2(adapter).withdrawLiquid(assets);
 
         uint256 routerAfter = asset.balanceOf(address(this));
-        uint256 adapterAfter = asset.balanceOf(upshiftAdapter);
+        uint256 adapterAfter = asset.balanceOf(adapter);
         if (routerAfter < routerBefore || routerAfter - routerBefore != assets) {
             revert AssetDeltaMismatch();
         }
         if (adapterAfter > adapterBefore || adapterBefore - adapterAfter != assets) {
             revert AdapterDeltaMismatch();
         }
-        if (reportedAssets != routerAfter - routerBefore) revert AdapterDeltaMismatch();
+        if (reportedAssets != assets) revert AdapterDeltaMismatch();
+    }
+
+    function _reconcileRouterCredit(uint256 beforeAssets, uint256 reportedAssets)
+        private
+        view
+        returns (uint256 receivedAssets)
+    {
+        uint256 afterAssets = asset.balanceOf(address(this));
+        if (afterAssets < beforeAssets) revert AssetDeltaMismatch();
+        receivedAssets = afterAssets - beforeAssets;
+        if (reportedAssets != receivedAssets) revert AdapterDeltaMismatch();
     }
 
     function _depositUpshift(
@@ -419,11 +663,8 @@ contract StrategyRouterV2 is ReentrancyGuard {
 
         uint256 reportedAssets = IStrategyAdapterV2(upshiftAdapter).redeem(shares, minAssetsOut);
 
-        uint256 routerAfter = asset.balanceOf(address(this));
         uint256 sharesAfter = IStrategyAdapterV2(upshiftAdapter).positionShares();
-        if (routerAfter < routerBefore) revert AssetDeltaMismatch();
-        uint256 actualAssets = routerAfter - routerBefore;
-        if (reportedAssets != actualAssets) revert AdapterDeltaMismatch();
+        uint256 actualAssets = _reconcileRouterCredit(routerBefore, reportedAssets);
         if (sharesAfter > sharesBefore || sharesBefore - sharesAfter != shares) {
             revert AdapterDeltaMismatch();
         }
@@ -449,23 +690,6 @@ contract StrategyRouterV2 is ReentrancyGuard {
             revert AdapterDeltaMismatch();
         }
         if (reportedShares != adapterAfter - adapterBefore) revert AdapterDeltaMismatch();
-    }
-
-    function _withdrawIdle(uint256 assets) private {
-        uint256 routerBefore = asset.balanceOf(address(this));
-        uint256 adapterBefore = asset.balanceOf(idleAdapter);
-
-        uint256 reportedAssets = IStrategyAdapterV2(idleAdapter).withdrawLiquid(assets);
-
-        uint256 routerAfter = asset.balanceOf(address(this));
-        uint256 adapterAfter = asset.balanceOf(idleAdapter);
-        if (routerAfter < routerBefore || routerAfter - routerBefore != assets) {
-            revert AssetDeltaMismatch();
-        }
-        if (adapterAfter > adapterBefore || adapterBefore - adapterAfter != assets) {
-            revert AdapterDeltaMismatch();
-        }
-        if (reportedAssets != routerAfter - routerBefore) revert AdapterDeltaMismatch();
     }
 
     function _computeRebalancePlan(AllocationV2 memory target, RebalanceLimitsV2 memory limits)

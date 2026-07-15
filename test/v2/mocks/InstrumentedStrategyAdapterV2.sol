@@ -78,8 +78,16 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
     uint256 public redeemSharesBurned;
     uint256 public redeemRouterCredit;
     uint256 public redeemReturnedAssets;
+    bool private _redeemAllExecutionConfigured;
+    uint256 public redeemAllSharesRemaining;
+    uint256 public redeemAllUnderlyingRemaining;
+    uint256 public redeemAllRouterCredit;
+    uint256 public redeemAllReturnedAssets;
+    address private _requiredPriorAdapter;
     address private _depositCallbackTarget;
     bytes private _depositCallbackData;
+    address private _redeemCallbackTarget;
+    bytes private _redeemCallbackData;
 
     error ForcedViewRevert();
     error PreviewReverted();
@@ -193,6 +201,23 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
         _requireLiquidWithdrawBeforeRedeem = value;
     }
 
+    function setRequiredPriorAdapter(address priorAdapter) external {
+        _requiredPriorAdapter = priorAdapter;
+    }
+
+    function setRedeemAllExecution(
+        uint256 sharesRemaining,
+        uint256 underlyingRemaining,
+        uint256 routerCredit,
+        uint256 returnedAssets
+    ) external {
+        _redeemAllExecutionConfigured = true;
+        redeemAllSharesRemaining = sharesRemaining;
+        redeemAllUnderlyingRemaining = underlyingRemaining;
+        redeemAllRouterCredit = routerCredit;
+        redeemAllReturnedAssets = returnedAssets;
+    }
+
     function setDepositReverts(bool value) external {
         _depositReverts = value;
     }
@@ -200,6 +225,11 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
     function setDepositCallback(address target, bytes calldata data) external {
         _depositCallbackTarget = target;
         _depositCallbackData = data;
+    }
+
+    function setRedeemCallback(address target, bytes calldata data) external {
+        _redeemCallbackTarget = target;
+        _redeemCallbackData = data;
     }
 
     function positionShares() external view returns (uint256) {
@@ -325,9 +355,26 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
         lastRedeemShares = shares;
         lastRedeemMinAssetsOut = minAssetsOut;
         if (_redeemReverts) revert ForcedExecutionRevert();
+        if (_redeemCallbackTarget != address(0)) {
+            address target = _redeemCallbackTarget;
+            bytes memory data = _redeemCallbackData;
+            _redeemCallbackTarget = address(0);
+            delete _redeemCallbackData;
+            (bool success, bytes memory returnData) = target.call(data);
+            if (!success) {
+                assembly ("memory-safe") {
+                    revert(add(returnData, 0x20), mload(returnData))
+                }
+            }
+        }
         if (_requireLiquidWithdrawBeforeRedeem && withdrawLiquidCallCount == 0) {
             revert RequiredCallOrder();
         }
+        if (
+            _requiredPriorAdapter != address(0)
+                && InstrumentedStrategyAdapterV2(_requiredPriorAdapter).withdrawLiquidCallCount()
+                    == 0
+        ) revert RequiredCallOrder();
 
         uint256 burned = _redeemExecutionConfigured ? redeemSharesBurned : shares;
         uint256 credit;
@@ -364,14 +411,35 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
         redeemAllCallCount++;
         stateChangingCallCount++;
         lastRedeemMinAssetsOut = minAssetsOut;
-        uint256 credit = _positionNetAssets;
-        _positionShares = 0;
+        if (_redeemCallbackTarget != address(0)) {
+            address target = _redeemCallbackTarget;
+            bytes memory data = _redeemCallbackData;
+            _redeemCallbackTarget = address(0);
+            delete _redeemCallbackData;
+            (bool success, bytes memory returnData) = target.call(data);
+            if (!success) {
+                assembly ("memory-safe") {
+                    revert(add(returnData, 0x20), mload(returnData))
+                }
+            }
+        }
+        uint256 direct = _asset.balanceOf(address(this));
+        uint256 remainingUnderlying =
+            _redeemAllExecutionConfigured ? redeemAllUnderlyingRemaining : 0;
+        if (remainingUnderlying > direct) revert ForcedExecutionRevert();
+        uint256 directCredit = direct - remainingUnderlying;
+        if (directCredit != 0) _asset.safeTransfer(router, directCredit);
+
+        uint256 defaultCredit = directCredit + _positionNetAssets;
+        uint256 credit = _redeemAllExecutionConfigured ? redeemAllRouterCredit : defaultCredit;
+        if (credit > directCredit) _mintOrTransferToRouter(credit - directCredit);
+
+        _positionShares = _redeemAllExecutionConfigured ? redeemAllSharesRemaining : 0;
         _positionNetAssets = 0;
         _positionGrossAssets = 0;
         _positionLiquidity = 0;
-        if (credit != 0) _mintOrTransferToRouter(credit);
+        assetsReceived = _redeemAllExecutionConfigured ? redeemAllReturnedAssets : credit;
         if (credit < minAssetsOut) revert InsufficientAssetsOut();
-        return credit;
     }
 
     function resetCallCounters() external {
