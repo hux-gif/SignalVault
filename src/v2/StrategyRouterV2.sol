@@ -2,6 +2,8 @@
 pragma solidity 0.8.27;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {IStrategyAdapterV2} from "./interfaces/IStrategyAdapterV2.sol";
@@ -24,7 +26,9 @@ interface IRouterBoundVaultV2 {
 
 /// @notice One-asset V2 strategy Router. Task 1 freezes deployment identities and configuration;
 /// runtime accounting and execution are introduced by later independently reviewed tasks.
-contract StrategyRouterV2 {
+contract StrategyRouterV2 is ReentrancyGuard {
+    using SafeERC20 for IERC20;
+
     uint16 private constant _BPS_DENOMINATOR = 10_000;
 
     struct IncreaseContextV2 {
@@ -73,7 +77,17 @@ contract StrategyRouterV2 {
     error ConfigurationIncomplete();
     error ConfigurationFrozen();
     error VaultOwnerMismatch();
+    error OnlyVault();
+    error RebalanceInfeasible(RebalanceBlockerV2 blocker);
+    error FundingMismatch(uint256 declaredFunding, uint256 availableFunding);
+    error AssetDeltaMismatch();
     error AdapterDeltaMismatch();
+    error AllowanceNotCleared();
+
+    modifier onlyVault() {
+        if (msg.sender != vault) revert OnlyVault();
+        _;
+    }
 
     constructor(IERC20 asset_, address vaultOwner_) {
         if (address(asset_) == address(0) || vaultOwner_ == address(0)) revert ZeroAddress();
@@ -253,6 +267,63 @@ contract StrategyRouterV2 {
         returns (RebalancePlanV2 memory plan)
     {
         return _computeRebalancePlan(target, limits);
+    }
+
+    /// @dev Task 4 executes only the Router-buffer and Idle legs of the recomputed plan. Upshift
+    /// mutation and final economic postconditions are added by their later review-gated tasks.
+    function rebalance(
+        bytes32,
+        AllocationV2 calldata target,
+        RebalanceLimitsV2 calldata limits,
+        uint256 fundingAssets
+    ) external onlyVault nonReentrant returns (uint256 totalAssetsAfter) {
+        uint256 entryBalance = asset.balanceOf(address(this));
+        if (fundingAssets > entryBalance) revert FundingMismatch(fundingAssets, entryBalance);
+
+        RebalancePlanV2 memory plan = _computeRebalancePlan(target, limits);
+        if (!plan.feasible) revert RebalanceInfeasible(plan.blocker);
+
+        if (plan.idleWithdrawAssets != 0) _withdrawIdle(plan.idleWithdrawAssets);
+        if (plan.idleDepositAssets != 0) _depositIdle(plan.idleDepositAssets);
+
+        return this.totalAssets();
+    }
+
+    function _depositIdle(uint256 assets) private {
+        uint256 routerBefore = asset.balanceOf(address(this));
+        uint256 adapterBefore = asset.balanceOf(idleAdapter);
+
+        asset.forceApprove(idleAdapter, assets);
+        uint256 reportedShares = IStrategyAdapterV2(idleAdapter).deposit(assets, assets);
+        asset.forceApprove(idleAdapter, 0);
+        if (asset.allowance(address(this), idleAdapter) != 0) revert AllowanceNotCleared();
+
+        uint256 routerAfter = asset.balanceOf(address(this));
+        uint256 adapterAfter = asset.balanceOf(idleAdapter);
+        if (routerAfter > routerBefore || routerBefore - routerAfter != assets) {
+            revert AssetDeltaMismatch();
+        }
+        if (adapterAfter < adapterBefore || adapterAfter - adapterBefore != assets) {
+            revert AdapterDeltaMismatch();
+        }
+        if (reportedShares != adapterAfter - adapterBefore) revert AdapterDeltaMismatch();
+    }
+
+    function _withdrawIdle(uint256 assets) private {
+        uint256 routerBefore = asset.balanceOf(address(this));
+        uint256 adapterBefore = asset.balanceOf(idleAdapter);
+
+        uint256 reportedAssets = IStrategyAdapterV2(idleAdapter).withdrawLiquid(assets);
+
+        uint256 routerAfter = asset.balanceOf(address(this));
+        uint256 adapterAfter = asset.balanceOf(idleAdapter);
+        if (routerAfter < routerBefore || routerAfter - routerBefore != assets) {
+            revert AssetDeltaMismatch();
+        }
+        if (adapterAfter > adapterBefore || adapterBefore - adapterAfter != assets) {
+            revert AdapterDeltaMismatch();
+        }
+        if (reportedAssets != routerAfter - routerBefore) revert AdapterDeltaMismatch();
     }
 
     function _computeRebalancePlan(AllocationV2 memory target, RebalanceLimitsV2 memory limits)

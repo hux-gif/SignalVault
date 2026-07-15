@@ -2,11 +2,14 @@
 pragma solidity 0.8.27;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {IStrategyAdapterV2} from "../../../src/v2/interfaces/IStrategyAdapterV2.sol";
 
 /// @notice Deterministic Router-bound adapter used only at the StrategyRouterV2 test seam.
 contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
+    using SafeERC20 for IERC20;
+
     IERC20 private immutable _asset;
     address public immutable router;
     address public immutable override positionToken;
@@ -61,9 +64,17 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
     uint256 public withdrawalAdapterDebit;
     uint256 public withdrawalRouterCredit;
     uint256 public withdrawalReturnedAssets;
+    uint256 public lastObservedAllowance;
+
+    bool private _depositExecutionConfigured;
+    bool private _withdrawalExecutionConfigured;
+    bool private _depositReverts;
+    address private _depositCallbackTarget;
+    bytes private _depositCallbackData;
 
     error ForcedViewRevert();
     error PreviewReverted();
+    error ForcedExecutionRevert();
 
     constructor(IERC20 asset_, address router_, address positionToken_) {
         _asset = asset_;
@@ -126,6 +137,7 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
         uint256 sharesMinted,
         uint256 returnedShares
     ) external {
+        _depositExecutionConfigured = true;
         depositRouterDebit = routerDebit;
         depositAdapterCredit = adapterCredit;
         depositSharesMinted = sharesMinted;
@@ -137,9 +149,19 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
         uint256 routerCredit,
         uint256 returnedAssets
     ) external {
+        _withdrawalExecutionConfigured = true;
         withdrawalAdapterDebit = adapterDebit;
         withdrawalRouterCredit = routerCredit;
         withdrawalReturnedAssets = returnedAssets;
+    }
+
+    function setDepositReverts(bool value) external {
+        _depositReverts = value;
+    }
+
+    function setDepositCallback(address target, bytes calldata data) external {
+        _depositCallbackTarget = target;
+        _depositCallbackData = data;
     }
 
     function positionShares() external view returns (uint256) {
@@ -197,7 +219,13 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
         withdrawLiquidCallCount++;
         stateChangingCallCount++;
         lastWithdrawLiquidAssets = assets;
-        return withdrawalReturnedAssets == 0 ? assets : withdrawalReturnedAssets;
+        uint256 adapterDebit = _withdrawalExecutionConfigured ? withdrawalAdapterDebit : assets;
+        uint256 routerCredit = _withdrawalExecutionConfigured ? withdrawalRouterCredit : assets;
+        if (routerCredit != 0) _asset.safeTransfer(router, routerCredit);
+        if (adapterDebit > routerCredit) {
+            _asset.safeTransfer(address(0xdead), adapterDebit - routerCredit);
+        }
+        return _withdrawalExecutionConfigured ? withdrawalReturnedAssets : assets;
     }
 
     function deposit(uint256 assets, uint256 minSharesOut)
@@ -208,7 +236,29 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
         stateChangingCallCount++;
         lastDepositAssets = assets;
         lastDepositMinSharesOut = minSharesOut;
-        return depositReturnedShares == 0 ? assets : depositReturnedShares;
+        lastObservedAllowance = _asset.allowance(router, address(this));
+        if (_depositReverts) revert ForcedExecutionRevert();
+        if (_depositCallbackTarget != address(0)) {
+            address target = _depositCallbackTarget;
+            bytes memory data = _depositCallbackData;
+            _depositCallbackTarget = address(0);
+            delete _depositCallbackData;
+            (bool success, bytes memory returnData) = target.call(data);
+            if (!success) {
+                assembly ("memory-safe") {
+                    revert(add(returnData, 0x20), mload(returnData))
+                }
+            }
+        }
+
+        uint256 routerDebit = _depositExecutionConfigured ? depositRouterDebit : assets;
+        uint256 adapterCredit = _depositExecutionConfigured ? depositAdapterCredit : assets;
+        if (routerDebit != 0) _asset.safeTransferFrom(router, address(this), routerDebit);
+        if (routerDebit > adapterCredit) {
+            _asset.safeTransfer(address(0xdead), routerDebit - adapterCredit);
+        }
+        if (_depositExecutionConfigured) return depositReturnedShares;
+        return assets;
     }
 
     function redeem(uint256 shares, uint256 minAssetsOut)
