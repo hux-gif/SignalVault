@@ -69,6 +69,9 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
     bool private _depositExecutionConfigured;
     bool private _withdrawalExecutionConfigured;
     bool private _redeemExecutionConfigured;
+    bool private _ignoreMinimumChecks;
+    bool private _depositPositionNetConfigured;
+    uint256 private _depositPositionNetAdded;
     bool private _depositReverts;
     bool private _redeemReverts;
     bool private _requireLiquidWithdrawBeforeRedeem;
@@ -151,6 +154,15 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
         depositAdapterCredit = adapterCredit;
         depositSharesMinted = sharesMinted;
         depositReturnedShares = returnedShares;
+    }
+
+    function setIgnoreMinimumChecks(bool value) external {
+        _ignoreMinimumChecks = value;
+    }
+
+    function setDepositPositionNetAdded(uint256 value) external {
+        _depositPositionNetConfigured = true;
+        _depositPositionNetAdded = value;
     }
 
     function setWithdrawalExecution(
@@ -288,13 +300,17 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
         if (positionToken != address(_asset)) {
             if (adapterCredit != 0) _asset.safeTransfer(address(0xdead), adapterCredit);
             DepositPreviewV2 memory preview = _depositPreviews[assets];
-            uint256 netAdded = preview.configured ? preview.immediateNet : assets;
+            uint256 netAdded = _depositPositionNetConfigured
+                ? _depositPositionNetAdded
+                : preview.configured ? preview.immediateNet : assets;
             _positionShares += actualShares;
             _positionNetAssets += netAdded;
             _positionGrossAssets += assets;
             _positionLiquidity += netAdded;
         }
-        if (positionToken != address(_asset) && actualShares < minSharesOut) {
+        if (
+            !_ignoreMinimumChecks && positionToken != address(_asset) && actualShares < minSharesOut
+        ) {
             revert InsufficientSharesOut();
         }
         return returnedShares;
@@ -341,7 +357,7 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
 
         if (credit != 0) _mintOrTransferToRouter(credit);
         assetsReceived = _redeemExecutionConfigured ? redeemReturnedAssets : credit;
-        if (credit < minAssetsOut) revert InsufficientAssetsOut();
+        if (!_ignoreMinimumChecks && credit < minAssetsOut) revert InsufficientAssetsOut();
     }
 
     function redeemAll(uint256 minAssetsOut) external returns (uint256 assetsReceived) {

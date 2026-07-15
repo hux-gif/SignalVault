@@ -712,6 +712,20 @@ contract StrategyRouterV2ExecutionTest is Test {
             feeRouter.previewRebalance(_allocation(10_000), _validLimits());
         assertTrue(expectedPlan.feasible);
 
+        if (feeBps > 100) {
+            vm.prank(address(feeVault));
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    IStrategyRouterV2.RebalanceLossExceeded.selector, 10_000, 100_000
+                )
+            );
+            IStrategyRouterV2(address(feeRouter))
+                .rebalance(_EXECUTION_ID, _allocation(10_000), _validLimits(), 1_000_000);
+            assertEq(feeUpshift.stateChangingCallCount(), 0);
+            assertEq(asset.balanceOf(address(feeRouter)), 1_000_000);
+            return;
+        }
+
         vm.prank(address(feeVault));
         IStrategyRouterV2(address(feeRouter))
             .rebalance(_EXECUTION_ID, _allocation(10_000), _validLimits(), 1_000_000);
