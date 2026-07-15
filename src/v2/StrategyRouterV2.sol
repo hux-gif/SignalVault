@@ -7,6 +7,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {IStrategyAdapterV2} from "./interfaces/IStrategyAdapterV2.sol";
+import {IStrategyRecoveryV2} from "./interfaces/IStrategyRecoveryV2.sol";
 import {
     AllocationSnapshotV2,
     RebalanceBlockerV2,
@@ -98,6 +99,9 @@ contract StrategyRouterV2 is ReentrancyGuard {
     error InsufficientLiquidity(uint256 requested, uint256 available);
     error ResidualAssets();
     error ResidualPosition();
+    error RecoveryRequiresPause();
+    error PositionAlreadyRecovered();
+    error RecoveredTargetForbidden();
 
     event AssetsWithdrawnToVault(
         uint256 requestedAssets,
@@ -108,6 +112,10 @@ contract StrategyRouterV2 is ReentrancyGuard {
         uint256 upshiftSharesRedeemed,
         uint256 upshiftAssetsReceived
     );
+    event AdapterPositionRecovered(
+        address indexed positionToken, uint256 sharesRecovered, address indexed receiver
+    );
+    event ExecutionPauseUpdated(bool paused);
 
     modifier onlyVault() {
         if (msg.sender != vault) revert OnlyVault();
@@ -302,6 +310,7 @@ contract StrategyRouterV2 is ReentrancyGuard {
         RebalanceLimitsV2 calldata limits,
         uint256 fundingAssets
     ) external onlyVault nonReentrant returns (uint256 totalAssetsAfter) {
+        if (upshiftRecovered) revert RecoveredTargetForbidden();
         uint256 entryBalance = asset.balanceOf(address(this));
         if (fundingAssets > entryBalance) revert FundingMismatch(fundingAssets, entryBalance);
 
@@ -481,6 +490,41 @@ contract StrategyRouterV2 is ReentrancyGuard {
             sharesRedeemed,
             upshiftPositionReceived
         );
+    }
+
+    function setExecutionPaused(bool paused) external onlyVault {
+        executionPaused = paused;
+        emit ExecutionPauseUpdated(paused);
+    }
+
+    function recoverAdapterPosition()
+        external
+        onlyVault
+        nonReentrant
+        returns (uint256 sharesRecovered)
+    {
+        if (!executionPaused) revert RecoveryRequiresPause();
+        if (upshiftRecovered) revert PositionAlreadyRecovered();
+
+        address positionToken = IStrategyAdapterV2(upshiftAdapter).positionToken();
+        uint256 adapterBefore = IERC20(positionToken).balanceOf(upshiftAdapter);
+        if (adapterBefore == 0) revert ResidualPosition();
+        uint256 vaultBefore = IERC20(positionToken).balanceOf(vault);
+
+        sharesRecovered = IStrategyRecoveryV2(upshiftAdapter).recoverPosition(vault);
+
+        uint256 adapterAfter = IERC20(positionToken).balanceOf(upshiftAdapter);
+        uint256 vaultAfter = IERC20(positionToken).balanceOf(vault);
+        if (adapterAfter > adapterBefore) revert AdapterDeltaMismatch();
+        uint256 adapterDecrease = adapterBefore - adapterAfter;
+        if (vaultAfter < vaultBefore) revert AdapterDeltaMismatch();
+        uint256 vaultIncrease = vaultAfter - vaultBefore;
+        if (adapterDecrease != sharesRecovered || vaultIncrease != sharesRecovered) {
+            revert AdapterDeltaMismatch();
+        }
+
+        upshiftRecovered = true;
+        emit AdapterPositionRecovered(positionToken, sharesRecovered, vault);
     }
 
     function _withdrawUpshiftPosition(uint256 deficit)

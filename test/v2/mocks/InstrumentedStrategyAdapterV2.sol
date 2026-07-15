@@ -5,9 +5,10 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {IStrategyAdapterV2} from "../../../src/v2/interfaces/IStrategyAdapterV2.sol";
+import {IStrategyRecoveryV2} from "../../../src/v2/interfaces/IStrategyRecoveryV2.sol";
 
 /// @notice Deterministic Router-bound adapter used only at the StrategyRouterV2 test seam.
-contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
+contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2, IStrategyRecoveryV2 {
     using SafeERC20 for IERC20;
 
     IERC20 private immutable _asset;
@@ -88,6 +89,15 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
     bytes private _depositCallbackData;
     address private _redeemCallbackTarget;
     bytes private _redeemCallbackData;
+
+    bool private _recoveryExecutionConfigured;
+    uint256 public recoveryAdapterDebit;
+    uint256 public recoveryReceiverCredit;
+    uint256 public recoveryReturnedShares;
+    uint256 public recoverPositionCallCount;
+    address public lastRecoveryReceiver;
+    address private _recoveryCallbackTarget;
+    bytes private _recoveryCallbackData;
 
     error ForcedViewRevert();
     error PreviewReverted();
@@ -230,6 +240,22 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
     function setRedeemCallback(address target, bytes calldata data) external {
         _redeemCallbackTarget = target;
         _redeemCallbackData = data;
+    }
+
+    function setRecoveryExecution(
+        uint256 adapterDebit,
+        uint256 receiverCredit,
+        uint256 returnedShares
+    ) external {
+        _recoveryExecutionConfigured = true;
+        recoveryAdapterDebit = adapterDebit;
+        recoveryReceiverCredit = receiverCredit;
+        recoveryReturnedShares = returnedShares;
+    }
+
+    function setRecoveryCallback(address target, bytes calldata data) external {
+        _recoveryCallbackTarget = target;
+        _recoveryCallbackData = data;
     }
 
     function positionShares() external view returns (uint256) {
@@ -440,6 +466,50 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
         _positionLiquidity = 0;
         assetsReceived = _redeemAllExecutionConfigured ? redeemAllReturnedAssets : credit;
         if (credit < minAssetsOut) revert InsufficientAssetsOut();
+    }
+
+    function recoverPosition(address receiver) external returns (uint256 sharesRecovered) {
+        recoverPositionCallCount++;
+        stateChangingCallCount++;
+        lastRecoveryReceiver = receiver;
+        if (_recoveryCallbackTarget != address(0)) {
+            address target = _recoveryCallbackTarget;
+            bytes memory data = _recoveryCallbackData;
+            _recoveryCallbackTarget = address(0);
+            delete _recoveryCallbackData;
+            (bool success, bytes memory returnData) = target.call(data);
+            if (!success) {
+                assembly ("memory-safe") {
+                    revert(add(returnData, 0x20), mload(returnData))
+                }
+            }
+        }
+
+        IERC20 token = IERC20(positionToken);
+        uint256 balance = token.balanceOf(address(this));
+        uint256 debit = _recoveryExecutionConfigured ? recoveryAdapterDebit : balance;
+        uint256 credit = _recoveryExecutionConfigured ? recoveryReceiverCredit : debit;
+        if (debit > balance) revert ForcedExecutionRevert();
+        if (credit > debit) revert ForcedExecutionRevert();
+
+        if (debit != 0) {
+            SafeERC20.safeTransfer(IERC20(positionToken), receiver, credit);
+        }
+
+        uint256 sharesToBurn = debit - credit;
+        if (sharesToBurn != 0 && positionToken != address(_asset)) {
+            (bool ok,) = positionToken.call(
+                abi.encodeWithSignature("burn(address,uint256)", address(this), sharesToBurn)
+            );
+            if (!ok) revert ForcedExecutionRevert();
+        }
+
+        _positionShares = _positionShares > debit ? _positionShares - debit : 0;
+        _positionNetAssets = 0;
+        _positionGrossAssets = 0;
+        _positionLiquidity = 0;
+
+        return _recoveryExecutionConfigured ? recoveryReturnedShares : debit;
     }
 
     function resetCallCounters() external {
