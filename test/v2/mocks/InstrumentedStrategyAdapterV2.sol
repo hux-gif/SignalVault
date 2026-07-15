@@ -28,12 +28,20 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
     bool private _statusReverts;
     bool private _previewReverts;
 
-    uint256 private _depositPreviewAssets;
-    uint256 private _depositPreviewShares;
-    uint256 private _depositPreviewNet;
-    uint256 private _redeemPreviewShares;
-    uint256 private _redeemPreviewGross;
-    uint256 private _redeemPreviewNet;
+    struct DepositPreviewV2 {
+        bool configured;
+        uint256 shares;
+        uint256 immediateNet;
+    }
+
+    struct RedeemPreviewV2 {
+        bool configured;
+        uint256 gross;
+        uint256 net;
+    }
+
+    mapping(uint256 assets => DepositPreviewV2 preview) private _depositPreviews;
+    mapping(uint256 shares => RedeemPreviewV2 preview) private _redeemPreviews;
 
     uint256 public depositCallCount;
     uint256 public withdrawLiquidCallCount;
@@ -104,15 +112,12 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
     }
 
     function setDepositPreview(uint256 assets, uint256 shares, uint256 immediateNet) external {
-        _depositPreviewAssets = assets;
-        _depositPreviewShares = shares;
-        _depositPreviewNet = immediateNet;
+        _depositPreviews[assets] =
+            DepositPreviewV2({configured: true, shares: shares, immediateNet: immediateNet});
     }
 
     function setRedeemPreview(uint256 shares, uint256 gross, uint256 net) external {
-        _redeemPreviewShares = shares;
-        _redeemPreviewGross = gross;
-        _redeemPreviewNet = net;
+        _redeemPreviews[shares] = RedeemPreviewV2({configured: true, gross: gross, net: net});
     }
 
     function setDepositExecution(
@@ -172,7 +177,8 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
         returns (uint256 shares, uint256 immediateNetValue)
     {
         if (_previewReverts) revert PreviewReverted();
-        if (_depositPreviewAssets == assets) return (_depositPreviewShares, _depositPreviewNet);
+        DepositPreviewV2 memory preview = _depositPreviews[assets];
+        if (preview.configured) return (preview.shares, preview.immediateNet);
         return (assets, assets);
     }
 
@@ -182,7 +188,8 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
         returns (uint256 grossAssets_, uint256 netAssets)
     {
         if (_previewReverts) revert PreviewReverted();
-        if (_redeemPreviewShares == shares) return (_redeemPreviewGross, _redeemPreviewNet);
+        RedeemPreviewV2 memory preview = _redeemPreviews[shares];
+        if (preview.configured) return (preview.gross, preview.net);
         return (shares, shares);
     }
 
