@@ -269,8 +269,8 @@ contract StrategyRouterV2 is ReentrancyGuard {
         return _computeRebalancePlan(target, limits);
     }
 
-    /// @dev Task 4 executes only the Router-buffer and Idle legs of the recomputed plan. Upshift
-    /// mutation and final economic postconditions are added by their later review-gated tasks.
+    /// @dev Executes the recomputed differential plan. Final loss, allocation-tolerance, and
+    /// cooldown postconditions are added by their later review-gated task.
     function rebalance(
         bytes32,
         AllocationV2 calldata target,
@@ -282,11 +282,102 @@ contract StrategyRouterV2 is ReentrancyGuard {
 
         RebalancePlanV2 memory plan = _computeRebalancePlan(target, limits);
         if (!plan.feasible) revert RebalanceInfeasible(plan.blocker);
+        uint256 positionSharesBefore = IStrategyAdapterV2(upshiftAdapter).positionShares();
 
-        if (plan.idleWithdrawAssets != 0) _withdrawIdle(plan.idleWithdrawAssets);
-        if (plan.idleDepositAssets != 0) _depositIdle(plan.idleDepositAssets);
+        if (plan.upshiftLiquidWithdrawAssets != 0) {
+            _withdrawUpshiftLiquid(plan.upshiftLiquidWithdrawAssets);
+        }
+
+        if (plan.upshiftDepositAssets != 0) {
+            if (plan.idleWithdrawAssets != 0) _withdrawIdle(plan.idleWithdrawAssets);
+            _depositUpshift(
+                plan.upshiftDepositAssets,
+                plan.previewedUpshiftSharesOut,
+                limits.maximumPreviewDeviationBps
+            );
+            if (plan.idleDepositAssets != 0) _depositIdle(plan.idleDepositAssets);
+        } else if (plan.upshiftSharesToRedeem != 0) {
+            _redeemUpshift(plan.upshiftSharesToRedeem, plan.upshiftMinAssetsOut);
+            if (plan.idleDepositAssets != 0) _depositIdle(plan.idleDepositAssets);
+        } else {
+            if (plan.idleWithdrawAssets != 0) _withdrawIdle(plan.idleWithdrawAssets);
+            if (plan.idleDepositAssets != 0) _depositIdle(plan.idleDepositAssets);
+        }
+
+        uint256 finalShares = IStrategyAdapterV2(upshiftAdapter).positionShares();
+        uint256 upshiftDirect = asset.balanceOf(upshiftAdapter);
+        uint256 finalNetAssets = IStrategyAdapterV2(upshiftAdapter).totalAssets();
+        if (finalNetAssets < upshiftDirect) revert AdapterDeltaMismatch();
+        if (plan.upshiftSharesToRedeem != 0) {
+            if (
+                finalShares > positionSharesBefore
+                    || positionSharesBefore - finalShares != plan.upshiftSharesToRedeem
+            ) revert AdapterDeltaMismatch();
+        } else if (plan.upshiftDepositAssets != 0) {
+            if (finalShares <= positionSharesBefore) revert AdapterDeltaMismatch();
+        } else if (finalShares != positionSharesBefore) {
+            revert AdapterDeltaMismatch();
+        }
 
         return this.totalAssets();
+    }
+
+    function _withdrawUpshiftLiquid(uint256 assets) private {
+        uint256 routerBefore = asset.balanceOf(address(this));
+        uint256 adapterBefore = asset.balanceOf(upshiftAdapter);
+
+        uint256 reportedAssets = IStrategyAdapterV2(upshiftAdapter).withdrawLiquid(assets);
+
+        uint256 routerAfter = asset.balanceOf(address(this));
+        uint256 adapterAfter = asset.balanceOf(upshiftAdapter);
+        if (routerAfter < routerBefore || routerAfter - routerBefore != assets) {
+            revert AssetDeltaMismatch();
+        }
+        if (adapterAfter > adapterBefore || adapterBefore - adapterAfter != assets) {
+            revert AdapterDeltaMismatch();
+        }
+        if (reportedAssets != routerAfter - routerBefore) revert AdapterDeltaMismatch();
+    }
+
+    function _depositUpshift(uint256 assets, uint256 previewedShares, uint16 deviationBps) private {
+        uint256 minSharesOut =
+            Math.mulDiv(previewedShares, _BPS_DENOMINATOR - deviationBps, _BPS_DENOMINATOR);
+        uint256 routerBefore = asset.balanceOf(address(this));
+        uint256 sharesBefore = IStrategyAdapterV2(upshiftAdapter).positionShares();
+
+        asset.forceApprove(upshiftAdapter, assets);
+        uint256 reportedShares = IStrategyAdapterV2(upshiftAdapter).deposit(assets, minSharesOut);
+        asset.forceApprove(upshiftAdapter, 0);
+        if (asset.allowance(address(this), upshiftAdapter) != 0) revert AllowanceNotCleared();
+
+        uint256 routerAfter = asset.balanceOf(address(this));
+        uint256 sharesAfter = IStrategyAdapterV2(upshiftAdapter).positionShares();
+        if (routerAfter > routerBefore || routerBefore - routerAfter != assets) {
+            revert AssetDeltaMismatch();
+        }
+        if (sharesAfter < sharesBefore) revert AdapterDeltaMismatch();
+        uint256 actualShares = sharesAfter - sharesBefore;
+        if (actualShares == 0 || actualShares < minSharesOut || reportedShares != actualShares) {
+            revert AdapterDeltaMismatch();
+        }
+    }
+
+    function _redeemUpshift(uint256 shares, uint256 minAssetsOut) private {
+        uint256 routerBefore = asset.balanceOf(address(this));
+        uint256 sharesBefore = IStrategyAdapterV2(upshiftAdapter).positionShares();
+
+        uint256 reportedAssets = IStrategyAdapterV2(upshiftAdapter).redeem(shares, minAssetsOut);
+
+        uint256 routerAfter = asset.balanceOf(address(this));
+        uint256 sharesAfter = IStrategyAdapterV2(upshiftAdapter).positionShares();
+        if (routerAfter < routerBefore) revert AssetDeltaMismatch();
+        uint256 actualAssets = routerAfter - routerBefore;
+        if (actualAssets < minAssetsOut || reportedAssets != actualAssets) {
+            revert AdapterDeltaMismatch();
+        }
+        if (sharesAfter > sharesBefore || sharesBefore - sharesAfter != shares) {
+            revert AdapterDeltaMismatch();
+        }
     }
 
     function _depositIdle(uint256 assets) private {

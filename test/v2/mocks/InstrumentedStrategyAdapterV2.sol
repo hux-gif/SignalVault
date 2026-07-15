@@ -68,13 +68,22 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
 
     bool private _depositExecutionConfigured;
     bool private _withdrawalExecutionConfigured;
+    bool private _redeemExecutionConfigured;
     bool private _depositReverts;
+    bool private _redeemReverts;
+    bool private _requireLiquidWithdrawBeforeRedeem;
+    uint256 public redeemSharesBurned;
+    uint256 public redeemRouterCredit;
+    uint256 public redeemReturnedAssets;
     address private _depositCallbackTarget;
     bytes private _depositCallbackData;
 
     error ForcedViewRevert();
     error PreviewReverted();
     error ForcedExecutionRevert();
+    error InsufficientSharesOut();
+    error InsufficientAssetsOut();
+    error RequiredCallOrder();
 
     constructor(IERC20 asset_, address router_, address positionToken_) {
         _asset = asset_;
@@ -153,6 +162,23 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
         withdrawalAdapterDebit = adapterDebit;
         withdrawalRouterCredit = routerCredit;
         withdrawalReturnedAssets = returnedAssets;
+    }
+
+    function setRedeemExecution(uint256 sharesBurned, uint256 routerCredit, uint256 returnedAssets)
+        external
+    {
+        _redeemExecutionConfigured = true;
+        redeemSharesBurned = sharesBurned;
+        redeemRouterCredit = routerCredit;
+        redeemReturnedAssets = returnedAssets;
+    }
+
+    function setRedeemReverts(bool value) external {
+        _redeemReverts = value;
+    }
+
+    function setRequireLiquidWithdrawBeforeRedeem(bool value) external {
+        _requireLiquidWithdrawBeforeRedeem = value;
     }
 
     function setDepositReverts(bool value) external {
@@ -257,8 +283,21 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
         if (routerDebit > adapterCredit) {
             _asset.safeTransfer(address(0xdead), routerDebit - adapterCredit);
         }
-        if (_depositExecutionConfigured) return depositReturnedShares;
-        return assets;
+        uint256 actualShares = _depositExecutionConfigured ? depositSharesMinted : assets;
+        uint256 returnedShares = _depositExecutionConfigured ? depositReturnedShares : actualShares;
+        if (positionToken != address(_asset)) {
+            if (adapterCredit != 0) _asset.safeTransfer(address(0xdead), adapterCredit);
+            DepositPreviewV2 memory preview = _depositPreviews[assets];
+            uint256 netAdded = preview.configured ? preview.immediateNet : assets;
+            _positionShares += actualShares;
+            _positionNetAssets += netAdded;
+            _positionGrossAssets += assets;
+            _positionLiquidity += netAdded;
+        }
+        if (positionToken != address(_asset) && actualShares < minSharesOut) {
+            revert InsufficientSharesOut();
+        }
+        return returnedShares;
     }
 
     function redeem(uint256 shares, uint256 minAssetsOut)
@@ -269,14 +308,54 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
         stateChangingCallCount++;
         lastRedeemShares = shares;
         lastRedeemMinAssetsOut = minAssetsOut;
-        return withdrawalReturnedAssets == 0 ? shares : withdrawalReturnedAssets;
+        if (_redeemReverts) revert ForcedExecutionRevert();
+        if (_requireLiquidWithdrawBeforeRedeem && withdrawLiquidCallCount == 0) {
+            revert RequiredCallOrder();
+        }
+
+        uint256 burned = _redeemExecutionConfigured ? redeemSharesBurned : shares;
+        uint256 credit;
+        RedeemPreviewV2 memory preview = _redeemPreviews[shares];
+        if (_redeemExecutionConfigured) credit = redeemRouterCredit;
+        else credit = preview.configured ? preview.net : shares;
+        if (burned > _positionShares) revert ForcedExecutionRevert();
+        _positionShares -= burned;
+
+        RedeemPreviewV2 memory remaining = _redeemPreviews[_positionShares];
+        if (_positionShares == 0) {
+            _positionNetAssets = 0;
+            _positionGrossAssets = 0;
+            _positionLiquidity = 0;
+        } else if (remaining.configured) {
+            _positionNetAssets = remaining.net;
+            _positionGrossAssets = remaining.gross;
+            _positionLiquidity = remaining.net;
+        } else {
+            uint256 netReduction = credit > _positionNetAssets ? _positionNetAssets : credit;
+            _positionNetAssets -= netReduction;
+            uint256 grossReduction = credit > _positionGrossAssets ? _positionGrossAssets : credit;
+            _positionGrossAssets -= grossReduction;
+            uint256 liquidityReduction = credit > _positionLiquidity ? _positionLiquidity : credit;
+            _positionLiquidity -= liquidityReduction;
+        }
+
+        if (credit != 0) _mintOrTransferToRouter(credit);
+        assetsReceived = _redeemExecutionConfigured ? redeemReturnedAssets : credit;
+        if (credit < minAssetsOut) revert InsufficientAssetsOut();
     }
 
     function redeemAll(uint256 minAssetsOut) external returns (uint256 assetsReceived) {
         redeemAllCallCount++;
         stateChangingCallCount++;
         lastRedeemMinAssetsOut = minAssetsOut;
-        return withdrawalReturnedAssets;
+        uint256 credit = _positionNetAssets;
+        _positionShares = 0;
+        _positionNetAssets = 0;
+        _positionGrossAssets = 0;
+        _positionLiquidity = 0;
+        if (credit != 0) _mintOrTransferToRouter(credit);
+        if (credit < minAssetsOut) revert InsufficientAssetsOut();
+        return credit;
     }
 
     function resetCallCounters() external {
@@ -285,5 +364,11 @@ contract InstrumentedStrategyAdapterV2 is IStrategyAdapterV2 {
         redeemCallCount = 0;
         redeemAllCallCount = 0;
         stateChangingCallCount = 0;
+    }
+
+    function _mintOrTransferToRouter(uint256 assets) private {
+        (bool minted,) =
+            address(_asset).call(abi.encodeWithSignature("mint(address,uint256)", router, assets));
+        if (!minted) _asset.safeTransfer(router, assets);
     }
 }
