@@ -50,8 +50,13 @@ contract ServiceV2FixtureTest is Test {
         // On-chain verifier accepts the TypeScript-produced signature.
         IntentVerifierV2 verifier = IntentVerifierV2(json.readAddress(".input.intentVerifier"));
         address recovered = ECDSA.recover(verifier.hashTypedData(result), signature);
-        assertEq(recovered, json.readAddress(".expected.signer"), "signature does not recover to signer");
-        assertTrue(verifier.verifyTEEResult(result, signature), "verifyTEEResult rejected service-v2 signature");
+        assertEq(
+            recovered, json.readAddress(".expected.signer"), "signature does not recover to signer"
+        );
+        assertTrue(
+            verifier.verifyTEEResult(result, signature),
+            "verifyTEEResult rejected service-v2 signature"
+        );
 
         // Coston2 capability profile is enforced (firelight/sparkdex must be zero).
         assertEq(result.allocation.firelightBps, 0, "firelightBps not zero");
@@ -123,12 +128,15 @@ contract ServiceV2FixtureTest is Test {
         result.chainId = vm.parseUint(json.readString(".result.chainId"));
         result.limits = RebalanceLimitsV2({
             minimumPostNAV: vm.parseUint(json.readString(".result.minimumPostNAV")),
-            maximumRebalanceLossBps:
-                uint16(vm.parseUint(json.readString(".result.maximumRebalanceLossBps"))),
-            maximumPreviewDeviationBps:
-                uint16(vm.parseUint(json.readString(".result.maximumPreviewDeviationBps"))),
-            allocationToleranceBps:
-                uint16(vm.parseUint(json.readString(".result.allocationToleranceBps")))
+            maximumRebalanceLossBps: uint16(
+                vm.parseUint(json.readString(".result.maximumRebalanceLossBps"))
+            ),
+            maximumPreviewDeviationBps: uint16(
+                vm.parseUint(json.readString(".result.maximumPreviewDeviationBps"))
+            ),
+            allocationToleranceBps: uint16(
+                vm.parseUint(json.readString(".result.allocationToleranceBps"))
+            )
         });
         result.resultHash = json.readBytes32(".result.resultHash");
     }
