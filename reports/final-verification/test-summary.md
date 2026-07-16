@@ -22,10 +22,10 @@ The workflow completed successfully with recursive submodules and a clean checko
 
 ## Canonical JavaScript test count
 
-- local-signer: 96
+- local-signer: 109
 - frontend: 6
 - integration: 67
-- total: 169
+- total: 182
 
 The previously quoted total of 170 was arithmetic drift and is retired.
 

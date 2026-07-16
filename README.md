@@ -304,7 +304,7 @@ that value.
 Current reproducible baseline:
 
 ```text
-JavaScript: 169 passed (96 local-signer, 6 frontend, 67 integration)
+JavaScript: 182 passed (109 local-signer, 6 frontend, 67 integration)
 Foundry: complete suite passed in clean-checkout CI
 Typecheck: pass
 Frontend build: pass

@@ -36,7 +36,7 @@
 
 1. Recap: Private intent → confidential evaluation → verifiable execution
 2. Note: All code is open source on GitHub
-3. Show the successful verification workflow: complete Foundry suite plus 169 JavaScript tests
+3. Show the successful verification workflow: complete Foundry suite plus 182 JavaScript tests
 4. Q&A
 
 ## Key Messages

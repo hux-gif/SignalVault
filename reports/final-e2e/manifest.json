@@ -8,7 +8,7 @@
   "status": "LOCAL_E2E_PENDING",
   "fccMode": "FCC-compatible Mode B simulated attestation; NOT hardware TEE",
   "testCounts": {
-    "javascript": 169,
+    "javascript": 182,
     "foundry": "complete suite passed in CI; exact count not exported"
   },
   "verificationUrl": "https://github.com/hux-gif/SignalVault/actions/runs/29474343314",
