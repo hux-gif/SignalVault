@@ -1,0 +1,9 @@
+{
+  "chainId": 114,
+  "explorerBaseUrl": "https://coston2-explorer.flare.network/tx/",
+  "approve": { "hash": "0xaebdca71c1cab7373e1c2d5aa4ae6a8211fe677069e9de0d552c35415364c858", "blockNumber": 32912468 },
+  "deposit": { "hash": "0x245f207e77f19c3246e84c1df7f1e33794af124263ceffe07850832008376d79", "blockNumber": 32912473, "assets": "5000000", "shares": "5000000" },
+  "submitIntent": { "hash": "0x8424df2d4833dd07521c529654b3df54a77291fbcd8141cf77fc31d253dcdd27", "blockNumber": 32912587, "nonce": "1", "commitment": "0x47e61755b5d332dafc542b52dce6705bd1ae079953b9121efe8563e6e2205e84" },
+  "executeRebalance": { "hash": "0xe38ed07e2f77a03b29cc6ba57bc09cfbc2e18f8eda43a7819510f2b019ec2d23", "blockNumber": 32912595, "executionId": "0x68f2749b7b7979f0d4edcbca1e5d2d3dcf397848cec326531c4e6e0ca1468110", "resultHash": "0x68f2749b7b7979f0d4edcbca1e5d2d3dcf397848cec326531c4e6e0ca1468110", "idleBps": 5000, "upshiftBps": 5000 },
+  "partialWithdraw": { "hash": "0xe550cd5bde1ae67f15e1ae29f16eaeefe08a1410d18dde9a889a7872d790d1ba", "blockNumber": 32912651, "sharesBurned": "1000000", "assetsDelivered": "997500" }
+}

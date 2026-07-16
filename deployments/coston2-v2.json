@@ -1,0 +1,40 @@
+{
+  "network": "coston2",
+  "chainId": 114,
+  "gitSha": "356ac06808d98e5c4fdffa58b90c1671eca960b8",
+  "deployer": "0x7D0658b3722ca36580eCF10CCe0cB135B99939d4",
+  "trustedSigner": "0x9cf07d4810D8245Ac30677cCe5BE1Da7d2D43684",
+  "deployedAt": "2026-07-16T06:36:37.441Z",
+  "contracts": {
+    "intentVerifierV2": "0x2C7b2a5620fbf25a65c81257F16b8437f5Af492a",
+    "strategyRouterV2": "0x1d64CE2a9293F248a7298135932bE9674d39a764",
+    "idleAdapterV2": "0xD0Ee1664e21aE9529f6cCCf94A70C29C7396fFD8",
+    "upshiftAdapterV2": "0x6bF0f5f7e9595171246C888F9AC10c830e1D81Db",
+    "signalVaultV2": "0x730CbAc00b4bfbBE4D9985Bf4eCe222bB6399898"
+  },
+  "externalContracts": {
+    "fxrp": "0x0b6A3645c240605887a5532109323A3E12273dc7",
+    "upshiftVault": "0x24c1a47cD5e8473b64EAB2a94515a196E10C7C81",
+    "upshiftLpToken": "0xe084F7328DDaB082a139b880782dCC424d20a1DB"
+  },
+  "riskConfiguration": {
+    "minimumRebalanceInterval": 3600,
+    "minimumAllocationChangeBps": 100,
+    "maximumRebalanceLossBps": 100,
+    "maximumPreviewDeviationBps": 100,
+    "allocationToleranceBps": 100
+  },
+  "riskConfigurationHash": "0xbc1236d24d6b8d7b511a12c32113ea33579d6ad34c14e9f9fa5d0a1e55d93836",
+  "routerConfigHash": "0x202497cf161eef43d5bc473c227f33ecea8c74868f1cfab4ea71f1f555ccb00c",
+  "transactions": {
+    "intentVerifierV2": { "hash": "0xb532607b82c28c669ea26c8fd2c6f89b3b8168fe000cfc3a4027f8c49a8996d5", "blockNumber": 32912336 },
+    "strategyRouterV2": { "hash": "0x03b35c48afcd8ee1d3d0b1c2af5cc00d33658b218f0e4cb55a2d566877d859d9", "blockNumber": 32912337 },
+    "idleAdapterV2": { "hash": "0x4525c2d3af13ab1a196078ff2f69e9a4fc8c526da4cd19fc51f7d37635de578a", "blockNumber": 32912337 },
+    "upshiftAdapterV2": { "hash": "0xc67ec2e27ce42eb3e9c89f9276811b128416d0b081c50b265963034479f682b2", "blockNumber": 32912337 },
+    "configureAdapters": { "hash": "0xe3ed209a5d713c9fedc38ba712cb434088b37a398072475da5fb2b9858c63e79", "blockNumber": 32912337 },
+    "configureRisk": { "hash": "0x849ab14b69fa02012be10f52b60c684ec5612fa4120ba897bdc0976009f179f3", "blockNumber": 32912337 },
+    "signalVaultV2": { "hash": "0x12391d717672554f9b4c448b5fe9912053b38964c97f5d8d9be6afb3a31385fd", "blockNumber": 32912337 },
+    "bindVault": { "hash": "0xcb1e9b9739b517cc9e914d8d030955ee5996f44664237bce6fa6f45f3576ef39", "blockNumber": 32912337 }
+  },
+  "verificationStatus": "not-submitted-to-explorer"
+}

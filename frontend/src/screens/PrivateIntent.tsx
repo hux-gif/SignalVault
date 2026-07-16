@@ -10,7 +10,7 @@ export function PrivateIntentScreen({ vaultAddress, nonce, onSubmit }: Props) {
   const [riskLevel, setRiskLevel] = useState(1);
   const [salt, setSalt] = useState("");
 
-  const riskLabels = ["Conservative (100% idle)", "Balanced (50/50)", "Growth (70% upshift)"];
+  const riskLabels = ["Conservative (30% upshift)", "Balanced (50/50)", "Growth (70% upshift)"];
 
   return (
     <div className="screen">
@@ -29,7 +29,7 @@ export function PrivateIntentScreen({ vaultAddress, nonce, onSubmit }: Props) {
         <label>Salt (private)</label>
         <input type="password" value={salt} onChange={(e) => setSalt(e.target.value)}
                placeholder="Random salt for commitment" />
-        <button onClick={() => onSubmit("0x" + "ab".repeat(32), nonce + 1n)}>
+        <button disabled title="The recorded Coston2 demonstration is complete; use the operator flow for a new private commitment." onClick={() => onSubmit("", nonce + 1n)}>
           Submit Intent
         </button>
       </div>

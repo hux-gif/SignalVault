@@ -1,0 +1,10 @@
+{
+  "stage": "after partial withdrawal",
+  "vaultOwnerShares": "4000000",
+  "netNAV": "3990000",
+  "grossNAV": "4002499",
+  "availableLiquidity": "3990000",
+  "upshiftLpShares": "2491263",
+  "idleFxrp": "1502500",
+  "ownerFxrp": "5997500"
+}

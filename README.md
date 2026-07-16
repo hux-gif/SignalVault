@@ -155,7 +155,7 @@ Coston2 deployment, live product E2E and a wallet-connected frontend remain pend
 | StrategyRouterV2 integration suite | 4 tests passing with real adapters          |
 | SignalVaultV2                       | Implemented; final review tracked in CI      |
 | V2 Anvil E2E                        | Script implemented; evidence run pending     |
-| SignalVault V2 Coston2 deployment   | Not deployed                                 |
+| SignalVault V2 Coston2 deployment   | Deployed; addresses in deployments/coston2-v2.json |
 | FCC Mode B                          | Local simulated attestation; not hardware TEE |
 | Frontend evidence views             | Static presentation; wallet/live data pending |
 
@@ -216,7 +216,7 @@ Upshift LP token:     0xe084F7328DDaB082a139b880782dCC424d20a1DB
 
 ```text
 Anvil (chainId 31337): recorded in deployments/anvil.json for local E2E only.
-Coston2 (chainId 114):  not deployed yet.
+Coston2 (chainId 114): deployed; see `deployments/coston2-v2.json`.
 ```
 
 ---
@@ -389,7 +389,7 @@ Wallet-connected frontend and public demo hosting
 - not financial advice
 - confidential compute is not live FCC
 - protocol fees / configurations may change
-- SignalVault V2 is implemented but not yet deployed to Coston2
+- SignalVault V2 is deployed to Coston2 with one recorded live E2E flow
 - unsupported strategies remain disabled
 - after `positionRecovered` becomes true, recovery cannot be invoked again;
   LP tokens sent to that adapter afterward may be permanently locked, so Router

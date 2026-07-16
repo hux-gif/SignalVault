@@ -1,0 +1,16 @@
+{
+  "allocationExecuted": {
+    "transactionHash": "0xe38ed07e2f77a03b29cc6ba57bc09cfbc2e18f8eda43a7819510f2b019ec2d23",
+    "executionId": "0x68f2749b7b7979f0d4edcbca1e5d2d3dcf397848cec326531c4e6e0ca1468110",
+    "targetUpshiftBps": 5000,
+    "targetIdleBps": 5000,
+    "preNAV": "5000000",
+    "postNAV": "4987500",
+    "loss": "12500"
+  },
+  "withdrawn": {
+    "transactionHash": "0xe550cd5bde1ae67f15e1ae29f16eaeefe08a1410d18dde9a889a7872d790d1ba",
+    "shares": "1000000",
+    "assets": "997500"
+  }
+}

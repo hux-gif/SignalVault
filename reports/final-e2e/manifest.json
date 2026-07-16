@@ -3,9 +3,9 @@
   "version": "1.0",
   "date": "2026-07-16",
   "gitSha": "ae7334dcfbf2fd5bc26e2a411f9101befd7219cf",
-  "network": "anvil",
-  "chainId": 31337,
-  "status": "LOCAL_E2E_PENDING",
+  "network": "coston2",
+  "chainId": 114,
+  "status": "LIVE_E2E_VERIFIED",
   "fccMode": "FCC-compatible Mode B simulated attestation; NOT hardware TEE",
   "testCounts": {
     "javascript": 182,
@@ -15,9 +15,17 @@
   "frontendUrl": null,
   "videoUrl": null,
   "coston2": {
-    "deployed": false,
-    "addresses": null,
-    "transactions": null
+    "deployed": true,
+    "deploymentManifest": "deployments/coston2-v2.json",
+    "addresses": {
+      "intentVerifierV2": "0x2C7b2a5620fbf25a65c81257F16b8437f5Af492a",
+      "strategyRouterV2": "0x1d64CE2a9293F248a7298135932bE9674d39a764",
+      "idleAdapterV2": "0xD0Ee1664e21aE9529f6cCCf94A70C29C7396fFD8",
+      "upshiftAdapterV2": "0x6bF0f5f7e9595171246C888F9AC10c830e1D81Db",
+      "signalVaultV2": "0x730CbAc00b4bfbBE4D9985Bf4eCe222bB6399898"
+    },
+    "deploymentTransactions": "see deployments/coston2-v2.json",
+    "e2eTransactions": "reports/final-e2e/transactions.json"
   },
   "steps": [
     "deploy",
