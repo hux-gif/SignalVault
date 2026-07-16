@@ -15,7 +15,7 @@ Release commit: `f013cdb1ef8656a0343444709feb4f022803f428`
 | UpshiftAdapterV2 | `DEPLOYED_COSTON2` | Real LP position |
 | FTSOv2 | `LIVE_E2E_VERIFIED` | Live value and timestamp bound into result |
 | FCC | `TESTED_LOCAL` | Mode B FCC-compatible simulated attestation; not hardware TEE |
-| Frontend | `DEMO_READY` | Live RPC evidence dashboard; public URL requires Pages enablement |
+| Frontend | `DEMO_READY` | https://hux-gif.github.io/SignalVault/ |
 | Coston2 E2E | `LIVE_E2E_VERIFIED` | Deposit, commitment, rebalance and withdrawal |
 | Submission docs | `DEMO_READY` | Video and DoraHacks upload remain human actions |
 
@@ -29,7 +29,6 @@ Release commit: `f013cdb1ef8656a0343444709feb4f022803f428`
 
 ## Human actions remaining
 
-1. Enable GitHub Pages with GitHub Actions as the source and record the real URL.
-2. Run a small external usability session or retain `EXTERNAL FEEDBACK PENDING`.
-3. Record and upload the 2-3 minute demo video.
-4. Complete and submit the DoraHacks form.
+1. Run a small external usability session or retain `EXTERNAL FEEDBACK PENDING`.
+2. Record and upload the 2-3 minute demo video.
+3. Complete and submit the DoraHacks form.

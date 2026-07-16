@@ -12,7 +12,7 @@
     "foundry": "complete suite passed in CI; exact count not exported"
   },
   "verificationUrl": "https://github.com/hux-gif/SignalVault/actions/runs/29480218456",
-  "frontendUrl": "HUMAN_ACTION_REQUIRED_ENABLE_GITHUB_PAGES",
+  "frontendUrl": "https://hux-gif.github.io/SignalVault/",
   "videoUrl": "HUMAN_ACTION_REQUIRED_UPLOAD_VIDEO",
   "coston2": {
     "deployed": true,

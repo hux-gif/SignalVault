@@ -3,7 +3,7 @@
 - Repository: https://github.com/hux-gif/SignalVault/tree/signalvault-final
 - Final release commit: `f013cdb1ef8656a0343444709feb4f022803f428`
 - Full verification: https://github.com/hux-gif/SignalVault/actions/runs/29480218456
-- Public dashboard: HUMAN ACTION REQUIRED - enable GitHub Pages, then record the real URL.
+- Public dashboard: https://hux-gif.github.io/SignalVault/
 - Demo video: HUMAN ACTION REQUIRED.
 
 ## Coston2 contracts

@@ -10,7 +10,7 @@ protection. The blockchain proves the resulting execution.
 
 **Status:** active development · testnet-focused · not audited
 
-**Live Coston2 evidence dashboard:** pending GitHub Pages enablement
+**Live Coston2 evidence dashboard:** https://hux-gif.github.io/SignalVault/
 
 **Demo video:** pending upload
 **Final verification:** https://github.com/hux-gif/SignalVault/actions/runs/29480218456
