@@ -515,7 +515,7 @@ contract StrategyRouterV2 is ReentrancyGuard {
         );
     }
 
-    function setExecutionPaused(bool paused) external onlyVault {
+    function setExecutionPaused(bool paused) external onlyVault nonReentrant {
         executionPaused = paused;
         emit ExecutionPauseUpdated(paused);
     }

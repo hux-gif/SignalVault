@@ -4,14 +4,14 @@
   "status": "complete",
   "scope": "StrategyRouterV2",
   "baseline_commit": "5551e68",
-  "head_commit": "",
+  "head_commit": "894102c",
   "test_counts": {
-    "foundry_total": "539",
-    "foundry_passing": "539",
+    "foundry_total": "542",
+    "foundry_passing": "542",
     "vitest_total": "163",
     "vitest_passing": "163"
   },
-  "runtime_size_bytes": "23513",
+  "runtime_size_bytes": "23713",
   "runtime_limit_bytes": "23800",
   "security_invariants": [
     {
