@@ -16,7 +16,7 @@ export const SIGNALVAULT_V2_ABI = parseAbi([
   "function deposit(uint256 assets) returns (uint256 shares)",
   "function withdraw(uint256 shares) returns (uint256 assets)",
   "function submitPrivateIntent(bytes32 intentCommitment, uint256 nonce)",
-  "function executeAuthenticatedRebalance(((address user,address vault,bytes32 intentCommitment,bytes32 capabilityProfile,bytes32 routerConfigHash,(uint16 upshiftBps,uint16 firelightBps,uint16 sparkdexBps,uint16 idleBps) allocation,uint256 nonce,uint256 deadline,uint256 ftsoPriceTimestamp,uint256 chainId,(uint256 minimumPostNAV,uint16 maximumRebalanceLossBps,uint16 maximumPreviewDeviationBps,uint16 allocationToleranceBps) limits,bytes32 resultHash) result, bytes signature)",
+  "function executeAuthenticatedRebalance((address user,address vault,bytes32 intentCommitment,bytes32 capabilityProfile,bytes32 routerConfigHash,(uint16 upshiftBps,uint16 firelightBps,uint16 sparkdexBps,uint16 idleBps) allocation,uint256 nonce,uint256 deadline,uint256 ftsoPriceTimestamp,uint256 chainId,(uint256 minimumPostNAV,uint16 maximumRebalanceLossBps,uint16 maximumPreviewDeviationBps,uint16 allocationToleranceBps) limits,bytes32 resultHash) result, bytes signature)",
   "function closeVault() returns (uint256 assetsDelivered)",
   "event Deposited(address indexed user, uint256 assets, uint256 shares)",
   "event Withdrawn(address indexed user, uint256 assets, uint256 shares)",
