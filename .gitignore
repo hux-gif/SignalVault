@@ -2,6 +2,7 @@
 /cache/
 /broadcast/
 node_modules/
+frontend/dist/
 /tools/
 /.superpowers/
 /.next/

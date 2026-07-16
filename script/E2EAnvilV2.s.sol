@@ -19,9 +19,11 @@ contract E2EAnvilV2 is Script {
 
         MockLPTokenV2 asset = new MockLPTokenV2("Test FXRP", "tFXRP", 6);
         MockLPTokenV2 lpToken = new MockLPTokenV2("Test Upshift LP", "tULP", 6);
-        FeeAwareUpshiftVaultMock protocol = new FeeAwareUpshiftVaultMock(address(asset), address(lpToken));
+        FeeAwareUpshiftVaultMock protocol =
+            new FeeAwareUpshiftVaultMock(address(asset), address(lpToken));
 
-        deployed = (new DeploySignalVaultV2()).deployContracts(
+        deployed = (new DeploySignalVaultV2())
+        .deployContracts(
             IERC20(address(asset)),
             trustedSigner,
             vaultOwner,
