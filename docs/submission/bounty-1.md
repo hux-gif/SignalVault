@@ -20,5 +20,5 @@ SignalVault creates a personal FXRP vault on Flare Coston2 that interoperates wi
 
 - Solidity contracts: `src/v2/SignalVaultV2.sol`, `src/v2/StrategyRouterV2.sol`
 - Real adapter integration: `test/v2/StrategyRouterV2Integration.t.sol`
-- 575 Foundry tests passing
+- Complete Foundry suite passing in clean-checkout CI
 - Deploy script: `script/DeploySignalVaultV2.s.sol`

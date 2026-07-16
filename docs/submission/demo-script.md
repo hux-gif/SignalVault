@@ -36,7 +36,7 @@
 
 1. Recap: Private intent → confidential evaluation → verifiable execution
 2. Note: All code is open source on GitHub
-3. Mention: 575 Foundry tests, 67 Vitest tests, all passing
+3. Show the successful verification workflow: complete Foundry suite plus 169 JavaScript tests
 4. Q&A
 
 ## Key Messages
@@ -44,4 +44,4 @@
 - "Your private intent never touches the chain"
 - "FCC Mode B simulates TEE attestation on Coston2"
 - "Every execution is verifiable via executionId linkage"
-- "Real Upshift protocol integration, not a simulation"
+- "The Upshift adapter targets the real protocol interface; the current live SignalVaultV2 deployment is still pending"

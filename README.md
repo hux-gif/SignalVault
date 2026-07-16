@@ -64,7 +64,7 @@ Aggregate allocation weights are public; they are not in the private column.
 
 ## Architecture
 
-### Implemented on `main`
+### V1/P0 baseline
 
 | Component                | Role                                                                 |
 | ------------------------ | ------------------------------------------------------------------- |
@@ -93,9 +93,13 @@ implemented on the public integration branch:
 - `IdleAdapterV2`
 - `UpshiftAdapterV2`
 - `StrategyRouterV2` with configuration freeze, accounting, planning, execution, withdrawal, recovery and security suites
+- `SignalVaultV2` with personal share accounting and authenticated V2 execution
+- `FTSOv2Reader` with freshness validation
+- FCC-compatible Mode B local signer boundary (simulated attestation, not hardware TEE)
+- three-screen frontend presentation
 - Canonical integration test using real adapters and the production Router
 
-`SignalVaultV2`, V2 deployment, and the V2 Anvil E2E are not implemented yet.
+Coston2 deployment, live product E2E and a wallet-connected frontend remain pending.
 
 ---
 
@@ -130,8 +134,9 @@ implemented on the public integration branch:
 
 ### In progress / designed
 
-- SignalVaultV2 net-NAV integration
-- independent V2 Adapter / Router / Vault deployment
+- independent V2 Adapter / Router / Vault deployment on Coston2
+- wallet-connected frontend and live E2E evidence
+- migration from Mode B operator signing to real FCC attestation
 
 ---
 
@@ -148,11 +153,11 @@ implemented on the public integration branch:
 | UpshiftAdapterV2                   | Implemented, repaired, not deployed          |
 | StrategyRouterV2 Tasks 1–10        | Complete, reviewed and locally verified      |
 | StrategyRouterV2 integration suite | 4 tests passing with real adapters          |
-| SignalVaultV2                       | Not started                                  |
-| V2 Anvil E2E                        | Not started                                  |
+| SignalVaultV2                       | Implemented; final review tracked in CI      |
+| V2 Anvil E2E                        | Script implemented; evidence run pending     |
 | SignalVault V2 Coston2 deployment   | Not deployed                                 |
-| Live FCC integration               | Not integrated                               |
-| Frontend evidence views             | Planned                                      |
+| FCC Mode B                          | Local simulated attestation; not hardware TEE |
+| Frontend evidence views             | Static presentation; wallet/live data pending |
 
 ---
 
@@ -296,18 +301,20 @@ that value.
 
 ## Testing
 
-Current `signalvault-final` baseline after StrategyRouterV2 Task 10:
+Current reproducible baseline:
 
 ```text
-Vitest:   163 passed (96 local-signer, 67 integration)
-Foundry:  539 passed (including 4 real-adapter integration tests)
-StrategyRouterV2 runtime: 23,513 bytes (limit 23,800)
+JavaScript: 169 passed (96 local-signer, 6 frontend, 67 integration)
+Foundry: complete suite passed in clean-checkout CI
 Typecheck: pass
-Forge fmt: clean
-Forge build: clean
+Frontend build: pass
+Forge fmt/build/build --sizes/test/lint: pass
 ```
 
-All commands exit with code 0.
+Canonical evidence: https://github.com/hux-gif/SignalVault/actions/runs/29474343314
+
+An exact Foundry count is intentionally not quoted until authenticated workflow
+log export is stored with the repository. This retires older conflicting counts.
 
 ---
 
@@ -364,11 +371,11 @@ The following Router-level mitigations are now implemented and locally verified:
 ```text
 Gate 4B — fee-aware Adapter V2
 Gate 4C — differential RouterV2 and net-NAV SignalVaultV2
-Gate 4D — V2 deployment, HTTP signer integration and Anvil E2E
+Gate 4D — Coston2 V2 deployment and live product E2E
 Coston2 V2 execution evidence
 Confidential Space spike
 FCC migration when publicly available
-Frontend private/public evidence views
+Wallet-connected frontend and public demo hosting
 ```
 
 ---
@@ -382,7 +389,7 @@ Frontend private/public evidence views
 - not financial advice
 - confidential compute is not live FCC
 - protocol fees / configurations may change
-- SignalVault V2 is not yet deployed
+- SignalVault V2 is implemented but not yet deployed to Coston2
 - unsupported strategies remain disabled
 - after `positionRecovered` becomes true, recovery cannot be invoked again;
   LP tokens sent to that adapter afterward may be permanently locked, so Router

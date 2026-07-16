@@ -2,8 +2,23 @@
   "name": "SignalVault Final E2E",
   "version": "1.0",
   "date": "2026-07-16",
+  "gitSha": "4a356efb65d261689231283d03a7a188d2143e9b",
   "network": "anvil",
-  "status": "pending",
+  "chainId": 31337,
+  "status": "LOCAL_E2E_PENDING",
+  "fccMode": "FCC-compatible Mode B simulated attestation; NOT hardware TEE",
+  "testCounts": {
+    "javascript": 169,
+    "foundry": "complete suite passed in CI; exact count not exported"
+  },
+  "verificationUrl": "https://github.com/hux-gif/SignalVault/actions/runs/29474343314",
+  "frontendUrl": null,
+  "videoUrl": null,
+  "coston2": {
+    "deployed": false,
+    "addresses": null,
+    "transactions": null
+  },
   "steps": [
     "deploy",
     "deposit",
