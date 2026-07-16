@@ -343,6 +343,123 @@ contract StrategyRouterV2IntegrationTest is Test {
     }
 
     // -----------------------------------------------------------------------
+    // Event evidence tests (R3)
+    // -----------------------------------------------------------------------
+
+    function testAllocationExecutedEventEmittedOnMovement() external {
+        vm.warp(1 hours);
+        asset.mint(address(router), 1_000_000);
+
+        bytes32 execId = keccak256("EVENT_TEST_EXECUTED");
+
+        vm.prank(address(vault));
+        vm.expectEmit(true, false, false, true);
+        emit IStrategyRouterV2.AllocationExecuted(execId, 5_000, 5_000, 1_000_000, 1_000_000, 0);
+        router.rebalance(execId, _allocation(5_000), _validLimits(), 1_000_000);
+    }
+
+    function testAllocationSkippedEventEmittedOnExactNoOp() external {
+        vm.warp(1 hours);
+        asset.mint(address(router), 1_000_000);
+
+        vm.prank(address(vault));
+        router.rebalance(_EXECUTION_ID, _allocation(5_000), _validLimits(), 1_000_000);
+
+        // Exact no-op: same target, no warp needed (bypasses cooldown check)
+        bytes32 skipId = keccak256("EVENT_TEST_SKIPPED");
+
+        vm.prank(address(vault));
+        vm.expectEmit(true, false, false, true);
+        emit IStrategyRouterV2.AllocationSkipped(skipId, 5_000, 5_000, 1_000_000);
+        router.rebalance(skipId, _allocation(5_000), _validLimits(), 0);
+    }
+
+    // -----------------------------------------------------------------------
+    // Real adapter recovery lifecycle (R2)
+    // -----------------------------------------------------------------------
+
+    function testRecoveryLifecycleThroughRealAdapters() external {
+        // Phase 1: Allocate 80% to Upshift, creating real LP position
+        vm.warp(1 hours);
+        asset.mint(address(router), 1_000_000);
+
+        vm.prank(address(vault));
+        router.rebalance(_EXECUTION_ID, _allocation(8_000), _validLimits(), 1_000_000);
+
+        uint256 adapterLP = lpToken.balanceOf(address(upshift));
+        assertGt(adapterLP, 0, "RL1: upshift holds LP");
+        assertEq(lpToken.balanceOf(address(vault)), 0, "RL1: vault has no LP initially");
+        assertEq(router.totalAssets(), 1_000_000, "RL1: total before recovery");
+
+        // Phase 2: Pause execution (required for recovery)
+        vm.prank(address(vault));
+        router.setExecutionPaused(true);
+        assertTrue(router.executionPaused(), "RL2: paused");
+
+        // Phase 3: Recover adapter position from vault
+        uint256 adapterLPBefore = lpToken.balanceOf(address(upshift));
+        uint256 vaultLPBefore = lpToken.balanceOf(address(vault));
+
+        vm.prank(address(vault));
+        vm.expectEmit(true, true, false, true);
+        emit IStrategyRouterV2.AdapterPositionRecovered(
+            address(lpToken), adapterLPBefore, address(vault)
+        );
+        uint256 sharesRecovered = router.recoverAdapterPosition();
+
+        // Phase 4: Verify return value == adapter debit == vault credit
+        assertEq(sharesRecovered, adapterLPBefore, "RL4: return == adapter LP before");
+        uint256 adapterLPAfter = lpToken.balanceOf(address(upshift));
+        uint256 vaultLPAfter = lpToken.balanceOf(address(vault));
+        assertEq(adapterLPBefore - adapterLPAfter, sharesRecovered, "RL4: adapter debit == return");
+        assertEq(vaultLPAfter - vaultLPBefore, sharesRecovered, "RL4: vault credit == return");
+        assertEq(adapterLPAfter, 0, "RL4: adapter LP fully drained");
+
+        // Phase 5: Verify upshiftRecovered flag and state
+        assertTrue(router.upshiftRecovered(), "RL5: upshiftRecovered true");
+        assertEq(
+            uint256(router.strategyState()),
+            uint256(RouterStateV2.UpshiftRecovered),
+            "RL5: recovered state"
+        );
+
+        // Phase 6: Second recovery rejects
+        vm.prank(address(vault));
+        vm.expectRevert(IStrategyRouterV2.PositionAlreadyRecovered.selector);
+        router.recoverAdapterPosition();
+
+        // Phase 7: Rebalance rejects after recovery
+        vm.warp(3 hours);
+        vm.prank(address(vault));
+        vm.expectRevert(IStrategyRouterV2.RecoveredTargetForbidden.selector);
+        router.rebalance(_EXECUTION_ID, _allocation(5_000), _validLimits(), 0);
+
+        // Phase 8: Accounting correct — uses direct underlying only
+        assertEq(router.totalAssets(), 200_000, "RL8: totalAssets = idle only after recovery");
+        assertEq(asset.balanceOf(address(upshift)), 0, "RL8: upshift direct zero");
+        assertEq(lpToken.balanceOf(address(upshift)), 0, "RL8: upshift LP zero");
+
+        // Phase 9: Withdrawal still works after recovery
+        vm.prank(address(vault));
+        uint256 delivered = router.withdrawToVault(100_000);
+        assertEq(delivered, 100_000, "RL9: withdrawal delivered");
+        assertEq(asset.balanceOf(address(vault)), 100_000, "RL9: vault received underlying");
+
+        // Phase 10: Full withdrawal after recovery
+        vm.prank(address(vault));
+        uint256 allDelivered = router.withdrawAllToVault();
+        assertGt(allDelivered, 0, "RL10: full withdrawal positive");
+
+        // Phase 11: Final reconciliation
+        assertEq(asset.balanceOf(address(router)), 0, "RL11: router direct zero");
+        assertEq(asset.balanceOf(address(idle)), 0, "RL11: idle zero");
+        assertEq(asset.balanceOf(address(upshift)), 0, "RL11: upshift direct zero");
+        assertEq(lpToken.balanceOf(address(upshift)), 0, "RL11: upshift LP zero");
+        assertGt(lpToken.balanceOf(address(vault)), 0, "RL11: vault holds recovered LP");
+        assertGt(asset.balanceOf(address(vault)), 0, "RL11: vault holds withdrawn underlying");
+    }
+
+    // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
 

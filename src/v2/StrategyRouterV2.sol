@@ -103,6 +103,17 @@ contract StrategyRouterV2 is ReentrancyGuard {
     error PositionAlreadyRecovered();
     error RecoveredTargetForbidden();
 
+    event AllocationExecuted(
+        bytes32 indexed executionId,
+        uint16 idleBps,
+        uint16 upshiftBps,
+        uint256 totalAssetsBefore,
+        uint256 totalAssetsAfter,
+        uint256 lossAssets
+    );
+    event AllocationSkipped(
+        bytes32 indexed executionId, uint16 idleBps, uint16 upshiftBps, uint256 totalAssets
+    );
     event AssetsWithdrawnToVault(
         uint256 requestedAssets,
         uint256 deliveredAssets,
@@ -305,7 +316,7 @@ contract StrategyRouterV2 is ReentrancyGuard {
     /// @dev Executes the recomputed differential plan and enforces the frozen economic limits.
     /// Withdrawal and recovery behavior is added only by their later review-gated tasks.
     function rebalance(
-        bytes32,
+        bytes32 executionId,
         AllocationV2 calldata target,
         RebalanceLimitsV2 calldata limits,
         uint256 fundingAssets
@@ -381,6 +392,18 @@ contract StrategyRouterV2 is ReentrancyGuard {
         if (_hasMovement(plan)) {
             // forge-lint: disable-next-line(block-timestamp)
             lastRebalanceTimestamp = block.timestamp;
+            emit AllocationExecuted(
+                executionId,
+                target.idleBps,
+                target.upshiftBps,
+                plan.totalAssetsBefore,
+                totalAssetsAfter,
+                plan.totalAssetsBefore > totalAssetsAfter
+                    ? plan.totalAssetsBefore - totalAssetsAfter
+                    : 0
+            );
+        } else {
+            emit AllocationSkipped(executionId, target.idleBps, target.upshiftBps, totalAssetsAfter);
         }
     }
 
