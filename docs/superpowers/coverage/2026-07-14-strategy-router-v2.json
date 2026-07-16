@@ -1,0 +1,335 @@
+{
+  "manifest_version": "1.0",
+  "certification_date": "2026-07-14",
+  "status": "complete",
+  "scope": "StrategyRouterV2",
+  "baseline_commit": "5551e68",
+  "head_commit": "",
+  "test_counts": {
+    "foundry_total": "539",
+    "foundry_passing": "539",
+    "vitest_total": "163",
+    "vitest_passing": "163"
+  },
+  "runtime_size_bytes": "23513",
+  "runtime_limit_bytes": "23800",
+  "security_invariants": [
+    {
+      "id": "SI-01",
+      "description": "Every runtime state mutation is Vault-only.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Execution.t.sol", "function": "testIdleRebalanceRejectsNonVaultCaller"},
+        {"file": "test/v2/StrategyRouterV2Withdrawal.t.sol", "function": "testWithdrawalRejectsNonVaultCaller"},
+        {"file": "test/v2/StrategyRouterV2Recovery.t.sol", "function": "testRecoveryRestrictedToVault"},
+        {"file": "test/v2/StrategyRouterV2Recovery.t.sol", "function": "testSetExecutionPausedRestrictedToVault"},
+        {"file": "test/v2/StrategyRouterV2Security.t.sol", "function": "testSecurityRebalanceRejectsNonVaultCaller"}
+      ]
+    },
+    {
+      "id": "SI-02",
+      "description": "Every runtime state mutation is non-reentrant.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Execution.t.sol", "function": "testIdleRebalanceRejectsReentrancy"},
+        {"file": "test/v2/StrategyRouterV2Withdrawal.t.sol", "function": "testWithdrawalRejectsReentrancy"},
+        {"file": "test/v2/StrategyRouterV2Recovery.t.sol", "function": "testRecoveryReentrancyBlocked"}
+      ]
+    },
+    {
+      "id": "SI-03",
+      "description": "No selector accepts an arbitrary asset receiver.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Configuration.t.sol", "function": "testFinalRuntimeInterfaceSelectorsAreFrozen"},
+        {"file": "test/v2/StrategyRouterV2Withdrawal.t.sol", "function": "testVaultUnderReceiptRevertsAtomically"}
+      ]
+    },
+    {
+      "id": "SI-04",
+      "description": "No selector accepts an arbitrary call target or calldata.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Configuration.t.sol", "function": "testFinalRuntimeInterfaceSelectorsAreFrozen"},
+        {"file": "test/v2/StrategyRouterV2Security.t.sol", "function": "testSecurityFrozenConfigRejectsAdapterReconfiguration"}
+      ]
+    },
+    {
+      "id": "SI-05",
+      "description": "The Router performs no delegatecall.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Configuration.t.sol", "function": "testFinalRuntimeInterfaceSelectorsAreFrozen"},
+        {"file": "test/v2/StrategyRouterV2Security.t.sol", "function": "testSecurityFrozenConfigRejectsAdapterReconfiguration"}
+      ]
+    },
+    {
+      "id": "SI-06",
+      "description": "Asset, Vault, and adapter identities cannot change after bind.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Configuration.t.sol", "function": "testSecondBindAndEveryPostBindMutationRevert"},
+        {"file": "test/v2/StrategyRouterV2Configuration.t.sol", "function": "testBindFreezesExactIdentitiesAndConfigHash"}
+      ]
+    },
+    {
+      "id": "SI-07",
+      "description": "Adapter router() bindings equal the Router before freeze.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Configuration.t.sol", "function": "testRejectsAdapterBoundToAnotherRouter"},
+        {"file": "test/v2/StrategyRouterV2Configuration.t.sol", "function": "testConfigureAdaptersRejectsIdleRouterMismatch"}
+      ]
+    },
+    {
+      "id": "SI-08",
+      "description": "Net NAV, gross telemetry, available liquidity, and LP shares remain distinct units.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Accounting.t.sol", "function": "testTotalAssetsUsesRouterAndAdapterNetValues"},
+        {"file": "test/v2/StrategyRouterV2Accounting.t.sol", "function": "testGrossAssetsUsesGrossTelemetryInsteadOfNetValues"},
+        {"file": "test/v2/StrategyRouterV2Accounting.t.sol", "function": "testAvailableLiquidityIsIndependentFromNetAssetValue"},
+        {"file": "test/v2/StrategyRouterV2Accounting.t.sol", "function": "testPositionSharesAreNeverAddedAsUnderlyingAssets"}
+      ]
+    },
+    {
+      "id": "SI-09",
+      "description": "Direct donations to Router and adapters remain system NAV and are counted once.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Accounting.t.sol", "function": "testDonationsAreCountedOnceWithoutCreatingStrategyExposure"},
+        {"file": "test/v2/StrategyRouterV2Execution.t.sol", "function": "testExistingRouterDonationIsNotMisreportedAsFunding"},
+        {"file": "test/v2/IdleAdapterV2.t.sol", "function": "testDirectDonationIncreasesAllViews"}
+      ]
+    },
+    {
+      "id": "SI-10",
+      "description": "Every Router token debit and credit is measured.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Execution.t.sol", "function": "testDirectBufferMovesOnlyIntoIdleAndLeavesNoAllowance"},
+        {"file": "test/v2/StrategyRouterV2Execution.t.sol", "function": "testIdleWithdrawalMovesOnlyPlannedDelta"},
+        {"file": "test/v2/StrategyRouterV2Integration.t.sol", "function": "testPreviewPlanMatchesExecutionForInitialAllocation"}
+      ]
+    },
+    {
+      "id": "SI-11",
+      "description": "Every adapter return is reconciled with Router balance delta.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Execution.t.sol", "function": "testIdleUnderReceiptRevertsAndRollsBack"},
+        {"file": "test/v2/StrategyRouterV2Execution.t.sol", "function": "testIdleOverReportWithoutTransferReverts"},
+        {"file": "test/v2/StrategyRouterV2Execution.t.sol", "function": "testUpshiftDepositReturnMismatchRevertsAtomically"},
+        {"file": "test/v2/StrategyRouterV2Execution.t.sol", "function": "testUpshiftRedeemReturnMismatchRevertsAtomically"}
+      ]
+    },
+    {
+      "id": "SI-12",
+      "description": "Every Upshift share mutation is reconciled with actual position-token balance.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Execution.t.sol", "function": "testUpshiftRedeemShareDeltaMismatchRevertsAtomically"},
+        {"file": "test/v2/UpshiftAdapterV2Execution.t.sol", "function": "testRedeemMeasuresProtocolLpAndRouterDeltas"}
+      ]
+    },
+    {
+      "id": "SI-13",
+      "description": "Ordinary rebalance cannot full-unwind an unchanged position.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Execution.t.sol", "function": "testIdleNoOpMakesZeroStateChangingCalls"},
+        {"file": "test/v2/StrategyRouterV2Planning.t.sol", "function": "testExactNoOpIsFeasibleAndMakesNoPreviewOrStateChangingCalls"}
+      ]
+    },
+    {
+      "id": "SI-14",
+      "description": "An infeasible target causes zero committed state change.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Execution.t.sol", "function": "testIdleInfeasiblePlanRevertsBeforeMutation"},
+        {"file": "test/v2/StrategyRouterV2Planning.t.sol", "function": "testNonzeroTurnoverBelowMinimumIsInfeasible"}
+      ]
+    },
+    {
+      "id": "SI-15",
+      "description": "Unsupported weights cannot be redirected.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Planning.t.sol", "function": "testUnsupportedOrMalformedAllocationReturnsInvalidAllocation"},
+        {"file": "test/v2/IntentVerifierV2.t.sol", "function": "testRejectsUnsupportedCoston2Weights"},
+        {"file": "test/v2/IntentVerifierV2.t.sol", "function": "testRejectsUnsupportedSparkdexWeight"}
+      ]
+    },
+    {
+      "id": "SI-16",
+      "description": "Preview and execution use the same planning function and rounding rules.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Execution.t.sol", "function": "testRebalanceRecomputesIdlePlanAtExecution"},
+        {"file": "test/v2/StrategyRouterV2Integration.t.sol", "function": "testPreviewPlanMatchesExecutionForInitialAllocation"}
+      ]
+    },
+    {
+      "id": "SI-17",
+      "description": "Every candidate loop is bounded to two evaluations; adapter liquidity search remains bounded to 64 previews inside the frozen adapter.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Planning.t.sol", "function": "testIncreaseUsesOnlyInitialCandidateAndOneRefinement"},
+        {"file": "test/v2/UpshiftAdapterV2Liquidity.t.sol", "function": "testMaxSearchIterationsIs64"},
+        {"file": "test/v2/UpshiftAdapterV2Liquidity.t.sol", "function": "testWorstCaseDoesNotExceedMaxRedemptionPreviews"}
+      ]
+    },
+    {
+      "id": "SI-18",
+      "description": "Post-rebalance NAV satisfies both absolute and relative signed bounds.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Risk.t.sol", "function": "testLossBoundaryUsesPreNetNavAndTenThousandDenominator"},
+        {"file": "test/v2/StrategyRouterV2Risk.t.sol", "function": "testMinimumPostNavAboveActualReverts"},
+        {"file": "test/v2/StrategyRouterV2Planning.t.sol", "function": "testProjectedPostNavRecognizesImmediateUpshiftFeeReserve"}
+      ]
+    },
+    {
+      "id": "SI-19",
+      "description": "Signed limits cannot weaken frozen limits.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Planning.t.sol", "function": "testSignedLimitsCannotWeakenFrozenRisk"},
+        {"file": "test/v2/StrategyRouterV2Risk.t.sol", "function": "testSignedLossLimitAboveFrozenIsRejected"}
+      ]
+    },
+    {
+      "id": "SI-20",
+      "description": "Cooldown applies only to successful nonzero rebalance movement.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Planning.t.sol", "function": "testCooldownBlocksAQualifyingNonzeroPlan"},
+        {"file": "test/v2/StrategyRouterV2Risk.t.sol", "function": "testNoOpDoesNotAdvanceCooldown"},
+        {"file": "test/v2/StrategyRouterV2Risk.t.sol", "function": "testBelowMinimumChangeDoesNotAdvanceCooldown"}
+      ]
+    },
+    {
+      "id": "SI-21",
+      "description": "Exact withdrawal pays the bound Vault or reverts atomically.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Withdrawal.t.sol", "function": "testVaultUnderReceiptRevertsAtomically"},
+        {"file": "test/v2/StrategyRouterV2Integration.t.sol", "function": "testCanonicalRouterLifecycleThroughRealAdapters"}
+      ]
+    },
+    {
+      "id": "SI-22",
+      "description": "Fee-free tiers are exhausted before Upshift LP redemption.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Withdrawal.t.sol", "function": "testWithdrawalUsesFeeFreeTiersBeforeFinalUpshiftDeficit"},
+        {"file": "test/v2/StrategyRouterV2Integration.t.sol", "function": "testProtocolPauseBlocksRebalanceButAllowsIdleWithdrawal"}
+      ]
+    },
+    {
+      "id": "SI-23",
+      "description": "Recovery cannot masquerade as underlying withdrawal.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Recovery.t.sol", "function": "testRecoveryTransfersExactLpToVault"},
+        {"file": "test/v2/StrategyRouterV2Recovery.t.sol", "function": "testRecoveryReceiverIsAlwaysBoundVault"}
+      ]
+    },
+    {
+      "id": "SI-24",
+      "description": "No normal target can use a recovered adapter.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Planning.t.sol", "function": "testRecoveredRouterRejectsEvenZeroUpshiftTarget"},
+        {"file": "test/v2/StrategyRouterV2Recovery.t.sol", "function": "testRecoveryBlocksRebalanceWithRecoveredTargetForbidden"}
+      ]
+    },
+    {
+      "id": "SI-25",
+      "description": "Preview cannot report feasible when a required dependency is unavailable.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Planning.t.sol", "function": "testUpshiftUnavailableMakesPlanInfeasible"},
+        {"file": "test/v2/StrategyRouterV2Integration.t.sol", "function": "testProtocolPauseBlocksRebalanceButAllowsIdleWithdrawal"}
+      ]
+    },
+    {
+      "id": "SI-26",
+      "description": "Exact temporary allowances return to zero; no unlimited approval is created.",
+      "evidence": [
+        {"file": "test/v2/IdleAdapterV2.t.sol", "function": "testDepositLeavesZeroAllowanceAfterSuccess"},
+        {"file": "test/v2/IdleAdapterV2.t.sol", "function": "testNoProtocolApprovalCreated"},
+        {"file": "test/v2/StrategyRouterV2Integration.t.sol", "function": "testZeroAllowancesAfterEveryPhase"}
+      ]
+    },
+    {
+      "id": "SI-27",
+      "description": "Coston2 never executes Firelight or SparkDEX weight.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Configuration.t.sol", "function": "testFinalRuntimeInterfaceSelectorsAreFrozen"},
+        {"file": "test/v2/IntentVerifierV2.t.sol", "function": "testRejectsUnsupportedCoston2Weights"}
+      ]
+    },
+    {
+      "id": "SI-28",
+      "description": "Events do not disclose private intent.",
+      "evidence": [
+        {"file": "test/v2/StrategyRouterV2Configuration.t.sol", "function": "testFinalRuntimeInterfaceSelectorsAreFrozen"},
+        {"file": "test/v2/StrategyRouterV2Integration.t.sol", "function": "testCanonicalRouterLifecycleThroughRealAdapters"}
+      ]
+    }
+  ],
+  "state_matrix": [
+    {
+      "operation": "totalAssets",
+      "operational": {"file": "test/v2/StrategyRouterV2Accounting.t.sol", "function": "testTotalAssetsUsesRouterAndAdapterNetValues", "outcome": "Router + Idle + Upshift net"},
+      "upshift_unavailable": {"file": "test/v2/StrategyRouterV2Accounting.t.sol", "function": "testUnavailableUpshiftLiquidityUsesOnlyProvablyWithdrawableTiers", "outcome": "reverts if net preview untrustworthy"},
+      "upshift_recovered": {"file": "test/v2/StrategyRouterV2Accounting.t.sol", "function": "testRecoveredAccountingUsesOnlyObservedUpshiftUnderlying", "outcome": "Router + Idle + Upshift direct underlying"}
+    },
+    {
+      "operation": "grossAssets",
+      "operational": {"file": "test/v2/StrategyRouterV2Accounting.t.sol", "function": "testGrossAssetsUsesGrossTelemetryInsteadOfNetValues", "outcome": "Router + Idle + Upshift gross"},
+      "upshift_unavailable": {"file": "test/v2/StrategyRouterV2Accounting.t.sol", "function": "testUnavailableUpshiftLiquidityUsesOnlyProvablyWithdrawableTiers", "outcome": "reverts if gross preview untrustworthy"},
+      "upshift_recovered": {"file": "test/v2/StrategyRouterV2Accounting.t.sol", "function": "testRecoveredAccountingUsesOnlyObservedUpshiftUnderlying", "outcome": "Router + Idle + Upshift direct underlying"}
+    },
+    {
+      "operation": "availableLiquidity",
+      "operational": {"file": "test/v2/StrategyRouterV2Accounting.t.sol", "function": "testAvailableLiquidityIsIndependentFromNetAssetValue", "outcome": "full verified waterfall capacity"},
+      "upshift_unavailable": {"file": "test/v2/StrategyRouterV2Accounting.t.sol", "function": "testUnavailableUpshiftLiquidityUsesOnlyProvablyWithdrawableTiers", "outcome": "Router + Idle only"},
+      "upshift_recovered": {"file": "test/v2/StrategyRouterV2Recovery.t.sol", "function": "testRecoveredStateNetGrossLiquidityEqualDirectOnly", "outcome": "Router + Idle + Upshift direct underlying only"}
+    },
+    {
+      "operation": "previewRebalance",
+      "operational": {"file": "test/v2/StrategyRouterV2Planning.t.sol", "function": "testInitialBufferAllocationCanDepositIntoBothStrategies", "outcome": "exact plan or explicit blocker"},
+      "upshift_unavailable": {"file": "test/v2/StrategyRouterV2Planning.t.sol", "function": "testUpshiftUnavailableMakesPlanInfeasible", "outcome": "feasible = false"},
+      "upshift_recovered": {"file": "test/v2/StrategyRouterV2Recovery.t.sol", "function": "testRecoveredStatePreviewRebalanceReturnsRecoveredTargetForbidden", "outcome": "feasible = false"}
+    },
+    {
+      "operation": "rebalance",
+      "operational": {"file": "test/v2/StrategyRouterV2Execution.t.sol", "function": "testDirectBufferMovesOnlyIntoIdleAndLeavesNoAllowance", "outcome": "executes strict plan"},
+      "upshift_unavailable": {"file": "test/v2/StrategyRouterV2Integration.t.sol", "function": "testProtocolPauseBlocksRebalanceButAllowsIdleWithdrawal", "outcome": "reverts"},
+      "upshift_recovered": {"file": "test/v2/StrategyRouterV2Recovery.t.sol", "function": "testRecoveryBlocksRebalanceWithRecoveredTargetForbidden", "outcome": "reverts"}
+    },
+    {
+      "operation": "withdrawToVault",
+      "operational": {"file": "test/v2/StrategyRouterV2Withdrawal.t.sol", "function": "testRouterOnlyWithdrawalMakesNoAdapterCall", "outcome": "complete waterfall"},
+      "upshift_unavailable": {"file": "test/v2/StrategyRouterV2Withdrawal.t.sol", "function": "testPausedWithdrawalSucceedsThroughFeeFreeTiers", "outcome": "succeeds through fee-free tiers"},
+      "upshift_recovered": {"file": "test/v2/StrategyRouterV2Recovery.t.sol", "function": "testRecoveryDoesNotBlockWithdrawToVault", "outcome": "Router + Idle + recovered direct underlying"}
+    },
+    {
+      "operation": "withdrawAllToVault",
+      "operational": {"file": "test/v2/StrategyRouterV2Withdrawal.t.sol", "function": "testFullCloseDrainsEveryNormalRecoverableAssets", "outcome": "succeeds only if all normal positions close"},
+      "upshift_unavailable": {"file": "test/v2/StrategyRouterV2Withdrawal.t.sol", "function": "testPausedWithdrawalRevertsWhenUpshiftIsRequired", "outcome": "reverts when nonzero Upshift LP cannot close"},
+      "upshift_recovered": {"file": "test/v2/StrategyRouterV2Recovery.t.sol", "function": "testRecoveryDoesNotBlockWithdrawToVault", "outcome": "transfers normal underlying; recovered LP stays"}
+    },
+    {
+      "operation": "recoverAdapterPosition",
+      "operational": {"file": "test/v2/StrategyRouterV2Recovery.t.sol", "function": "testRecoveryRequiresPause", "outcome": "requires pause, then transitions to recovered"},
+      "upshift_unavailable": {"file": "test/v2/StrategyRouterV2Recovery.t.sol", "function": "testRecoveryRequiresNonzeroPosition", "outcome": "allowed only while paused and LP exists"},
+      "upshift_recovered": {"file": "test/v2/StrategyRouterV2Recovery.t.sol", "function": "testRecoveryRejectsSecondCall", "outcome": "reverts permanently"}
+    },
+    {
+      "operation": "setExecutionPaused",
+      "operational": {"file": "test/v2/StrategyRouterV2Recovery.t.sol", "function": "testSetExecutionPausedTogglesBackAndForth", "outcome": "may transition to unavailable"},
+      "upshift_unavailable": {"file": "test/v2/StrategyRouterV2Recovery.t.sol", "function": "testSetExecutionPausedEmitsEvent", "outcome": "may restore operational state"},
+      "upshift_recovered": {"file": "test/v2/StrategyRouterV2Recovery.t.sol", "function": "testSetExecutionPausedWorksInRecoveredState", "outcome": "remains recovered regardless of pause flag"}
+    }
+  ],
+  "frozen_dependencies": {
+    "baseline": "5551e68",
+    "files": [
+      "src/v2/interfaces/IStrategyAdapterV2.sol",
+      "src/v2/interfaces/IStrategyRecoveryV2.sol",
+      "src/v2/interfaces/IUpshiftVaultV2.sol",
+      "src/v2/interfaces/IStrategyRouterV2.sol",
+      "src/v2/adapters/IdleAdapterV2.sol",
+      "src/v2/adapters/UpshiftAdapterV2.sol"
+    ],
+    "diff": "zero"
+  },
+  "integration_suite": {
+    "file": "test/v2/StrategyRouterV2Integration.t.sol",
+    "tests": [
+      "testCanonicalRouterLifecycleThroughRealAdapters",
+      "testPreviewPlanMatchesExecutionForInitialAllocation",
+      "testProtocolPauseBlocksRebalanceButAllowsIdleWithdrawal",
+      "testZeroAllowancesAfterEveryPhase"
+    ],
+    "adapters": "real IdleAdapterV2 and UpshiftAdapterV2"
+  }
+}

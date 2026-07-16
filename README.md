@@ -83,7 +83,7 @@ Aggregate allocation weights are public; they are not in the private column.
 
 ### Implemented on `signalvault-final`
 
-The reviewed Adapter V2 foundation and the first two StrategyRouterV2 tasks are
+The reviewed Adapter V2 foundation and the complete StrategyRouterV2 are
 implemented on the public integration branch:
 
 - `IStrategyAdapterV2` frozen adapter interface
@@ -92,10 +92,10 @@ implemented on the public integration branch:
 - Fee-aware Upshift vault mock
 - `IdleAdapterV2`
 - `UpshiftAdapterV2`
-- `StrategyRouterV2` one-time configuration and read-only accounting views
+- `StrategyRouterV2` with configuration freeze, accounting, planning, execution, withdrawal, recovery and security suites
+- Canonical integration test using real adapters and the production Router
 
-Strict differential rebalance execution, `SignalVaultV2`, V2 deployment and the
-V2 Anvil E2E are not implemented yet.
+`SignalVaultV2`, V2 deployment, and the V2 Anvil E2E are not implemented yet.
 
 ---
 
@@ -130,9 +130,7 @@ V2 Anvil E2E are not implemented yet.
 
 ### In progress / designed
 
-- net-liquidation NAV integration in RouterV2 and SignalVaultV2
-- liquidity-first vault withdrawals
-- differential rebalancing
+- SignalVaultV2 net-NAV integration
 - independent V2 Adapter / Router / Vault deployment
 
 ---
@@ -148,9 +146,8 @@ V2 Anvil E2E are not implemented yet.
 | Gate 4B full-branch rereview       | Passed                                       |
 | IdleAdapterV2                      | Implemented, repaired, not deployed          |
 | UpshiftAdapterV2                   | Implemented, repaired, not deployed          |
-| StrategyRouterV2 Task 1            | Complete and reviewed                        |
-| StrategyRouterV2 Task 2            | Implemented; repair rereview pending         |
-| StrategyRouterV2 Tasks 3–10        | Not authorized                               |
+| StrategyRouterV2 Tasks 1–10        | Complete, reviewed and locally verified      |
+| StrategyRouterV2 integration suite | 4 tests passing with real adapters          |
 | SignalVaultV2                       | Not started                                  |
 | V2 Anvil E2E                        | Not started                                  |
 | SignalVault V2 Coston2 deployment   | Not deployed                                 |
@@ -299,11 +296,12 @@ that value.
 
 ## Testing
 
-Current `signalvault-final` baseline before StrategyRouterV2 Task 3:
+Current `signalvault-final` baseline after StrategyRouterV2 Task 10:
 
 ```text
 Vitest:   163 passed (96 local-signer, 67 integration)
-Foundry:  complete suite verified in the Task 2 repair report
+Foundry:  539 passed (including 4 real-adapter integration tests)
+StrategyRouterV2 runtime: 23,513 bytes (limit 23,800)
 Typecheck: pass
 Forge fmt: clean
 Forge build: clean
@@ -343,7 +341,9 @@ reports/                      Coston2 verification reports
 - replay: canonical resultHash is recorded as executed
 - incorrect router configuration: immutable router binding on the vault
 
-### Planned mitigations (Gate 4B / 4C)
+### Implemented mitigations (Gate 4B)
+
+The following Router-level mitigations are now implemented and locally verified:
 
 - protocol fee changes: live preview reads, no hardcoded 50 BPS
 - protocol pause: NAV views continue to value a valid position while protocol
@@ -354,6 +354,8 @@ reports/                      Coston2 verification reports
 - low-liquidity withdrawal: conservative `availableLiquidity` with 64-call bound
 - malicious or non-standard ERC-20 behavior: balance-delta reconciliation, no
   trusted return value from `instantRedeem`
+
+### Planned mitigations (Gate 4C)
 
 ---
 
