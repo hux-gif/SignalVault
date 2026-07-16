@@ -2,7 +2,7 @@
   "name": "SignalVault Final E2E",
   "version": "1.0",
   "date": "2026-07-16",
-  "gitSha": "4a356efb65d261689231283d03a7a188d2143e9b",
+  "gitSha": "ae7334dcfbf2fd5bc26e2a411f9101befd7219cf",
   "network": "anvil",
   "chainId": 31337,
   "status": "LOCAL_E2E_PENDING",
@@ -11,7 +11,7 @@
     "javascript": 182,
     "foundry": "complete suite passed in CI; exact count not exported"
   },
-  "verificationUrl": "https://github.com/hux-gif/SignalVault/actions/runs/29474343314",
+  "verificationUrl": "https://github.com/hux-gif/SignalVault/actions/runs/29474841140",
   "frontendUrl": null,
   "videoUrl": null,
   "coston2": {
