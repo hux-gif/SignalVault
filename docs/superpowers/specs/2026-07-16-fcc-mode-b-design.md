@@ -1,15 +1,15 @@
-# FCC Mode B Design 鈥?Simulated TEE Attestation
+# FCC Mode B Design - Simulated TEE Attestation
 
 ## 1. Mode declaration
 
-**Mode B 鈥?FCC-compatible simulated TEE attestation on Coston2**
+**Mode B - FCC-compatible simulated TEE attestation on Coston2**
 
 This is NOT Mode C (real confidential hardware). Mode B uses a local deterministic signer that simulates the TEE attestation boundary. The signer operates as a trusted oracle that evaluates private intent and produces authenticated allocation results.
 
 ## 2. Architecture
 
 ```
-Private Intent 鈫?Local Signer (Mode B) 鈫?TEEResultV2 鈫?SignalVaultV2 鈫?StrategyRouterV2
+Private Intent -> Local Signer (Mode B) -> TEEResultV2 -> SignalVaultV2 -> StrategyRouterV2
 ```
 
 The local signer:
@@ -32,12 +32,13 @@ The local signer:
 - Nonce (from vault)
 - Deadline (current time + TTL)
 - ChainId (Coston2 = 114)
+- V2 signer context (minimumPostNAV, maxRebalanceLossBps, maxPreviewDeviationBps, allocationToleranceBps)
 
 ## 5. Outputs
 
 - Vault address
 - Intent commitment (hash, not plaintext)
-- Allocation (idleBps, upshiftBps)
+- Allocation (idleBps, upshiftBps; firelightBps=0 and sparkdexBps=0 per Coston2 profile)
 - Risk limits (from frozen risk configuration)
 - Nonce
 - Deadline
@@ -45,36 +46,74 @@ The local signer:
 - routerConfigHash
 - resultHash
 - Signature (EIP-712)
-- Attestation metadata: "Mode B 鈥?local deterministic signer, NOT hardware TEE"
+- Attestation metadata: "Mode B - local deterministic signer, NOT hardware TEE"
 
 ## 6. Allocation strategy
 
-Deterministic, simple, explainable:
-- Risk level 0 (conservative): 100% idle, 0% upshift
-- Risk level 1 (balanced): 50% idle, 50% upshift
-- Risk level 2 (growth): 30% idle, 70% upshift
+Deterministic, simple, explainable (Coston2-constrained):
+- Risk level 0 (conservative): 30% upshift / 70% idle
+- Risk level 1 (balanced):     50% upshift / 50% idle
+- Risk level 2 (growth):        70% upshift / 30% idle
 
-No AI price prediction. No guaranteed alpha. Allocation is a fixed function of risk level.
+Modifiers:
+- Stale FTSO (now - timestamp > maxAge): collapses upshift to 0% / 100% idle
+- maxDrawdownBps <= 100: caps upshift at 0%
+- maxDrawdownBps <= 300: caps upshift at 30%
+- firelightBps and sparkdexBps are always 0 on Coston2 (capability profile enforced)
+- upshiftBps + idleBps always sums to exactly 10,000
+
+No AI price prediction. No guaranteed alpha. Allocation is a fixed function of risk level and FTSO freshness.
 
 ## 7. Privacy boundary
 
 - Private intent is NEVER stored on-chain
 - Only the commitment hash is submitted
 - The signer does NOT log plaintext intent (configurable, disabled in production)
-- Events contain only public execution evidence
+- Events contain only public execution evidence (no plaintext intent, no salt, no secret input)
 
-## 8. FCC integration points
+## 8. FTSO freshness boundary
 
-The local-signer service (`local-signer/src/service.ts`) already implements the complete Mode B flow. The V2 extension (`local-signer/src/v2/`) provides:
-- `resultHash.ts` 鈥?V2 resultHash computation
-- `typedData.ts` 鈥?V2 EIP-712 typed data signing
-- `types.ts` 鈥?V2 TEEResultV2 type
-- `configHash.ts` 鈥?V2 config hash computation
-- `validation.ts` 鈥?V2 input validation
+FTSO freshness is enforced OFF-CHAIN by the signer, not on-chain by IntentVerifierV2:
 
-## 9. Known limitations
+- `local-signer/src/service-v2.ts::validateInput` rejects `input.ftso.timestamp > currentTime`
+- `service-v2.ts` rejects `currentTime - input.ftso.timestamp > config.ftsoMaxAgeSeconds` (default 120s)
+- `ftsoPriceTimestamp` is bound into `resultHash` via `computeResultHashV2` (cannot be mutated post-signature)
+- `deadline` is bound into `resultHash` and bounded by `config.resultTtlSeconds` (default 300s)
+- A signed result is replay-protected at the vault layer via `executedResults[resultHash]` (single execution)
+
+Trade-off: IntentVerifierV2 does NOT call FTSOv2Reader on-chain. This avoids gas cost and FTSO feed dependency at verification time, but means that within the deadline window, a stale-price result remains valid for one execution. The signer is trusted to have rejected stale FTSO inputs at signing time.
+
+Default `resultTtlSeconds=300` bounds the worst-case staleness to 5 minutes, which is appropriate for Coston2 demonstration. Production deployment should consider either:
+  (a) Invoking FTSOv2Reader from `IntentVerifierV2.verifyTEEResult` (binding the verifier to a live FTSO feed address), or
+  (b) Shortening `resultTtlSeconds` to a value bounded by the accepted staleness threshold.
+
+## 9. FCC integration points
+
+The local-signer V2 path (`local-signer/src/service-v2.ts`) implements the complete Mode B flow:
+- `src/service-v2.ts` - V2 allocation service producing TEEResultV2 + EIP-712 signature
+- `src/allocation-v2.ts` - Coston2-constrained deterministic planner (upshift + idle only)
+- `src/v2/resultHash.ts` - V2 resultHash computation (18-field canonical schema)
+- `src/v2/typedData.ts` - V2 EIP-712 typed data signing (domain version "2")
+- `src/v2/types.ts` - V2 TEEResultV2 type
+- `src/v2/configHash.ts` - V2 routerConfigHash + riskConfigurationHash computation
+- `src/v2/validation.ts` - V2 Coston2 profile enforcement (firelightBps=0, sparkdexBps=0, upshiftBps+idleBps=10000)
+
+The legacy V1 service (`local-signer/src/service.ts`) is retained for backward compatibility with the V1 contracts; do not use it for V2 deployments.
+
+## 10. Cross-language verification
+
+`test/v2/ServiceV2Fixture.t.sol` consumes a fixture generated by `local-signer/scripts/generate-service-v2-fixture.ts` and asserts:
+- `IntentVerifierV2.verifyTEEResult(result, signature) == true`
+- `SignalVaultHashesV2.computeResultHash(result) == result.resultHash`
+- `computeRouterConfigHash(...) == expected.routerConfigHash`
+- `computeRiskConfigurationHash(...) == expected.riskConfigurationHash`
+- Coston2 profile invariants (firelightBps=0, sparkdexBps=0, upshiftBps+idleBps=10000)
+
+## 11. Known limitations
 
 - Mode B does NOT provide hardware attestation
 - The signer's private key must be protected by the operator
 - In production, Mode C would use real TEE hardware (e.g., Intel SGX, AMD SEV)
 - Mode B is suitable for Coston2 testnet and hackathon demonstration
+- FTSO freshness is off-chain only (see Section 8)
+- The signer is a single point of trust; rotation uses `IntentVerifierV2.setTrustedSigner` (owner-gated)

@@ -125,7 +125,11 @@ contract SignalVaultV2 is ERC20, ReentrancyGuard {
         emit Withdrawn(msg.sender, assets, shares);
     }
 
-    function submitPrivateIntent(bytes32 intentCommitment, uint256 nonce) external onlyVaultOwner {
+    function submitPrivateIntent(bytes32 intentCommitment, uint256 nonce)
+        external
+        onlyVaultOwner
+        nonReentrant
+    {
         if (intentCommitment == bytes32(0)) revert InvalidIntentCommitment();
         uint256 expectedNonce = userIntentNonce + 1;
         if (nonce != expectedNonce) revert InvalidIntentNonce(expectedNonce, nonce);
