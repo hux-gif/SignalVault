@@ -1,12 +1,12 @@
 # Final Verification Summary
 
-Latest local verification commit: `ae7334dcfbf2fd5bc26e2a411f9101befd7219cf`
+Final deployment-evidence commit: `472232ec9225d64ce7c7b4bcb520a2c28e8393bd`
 
-Latest successful V2 signer CI run: https://github.com/hux-gif/SignalVault/actions/runs/29474841140
+Final successful CI run: https://github.com/hux-gif/SignalVault/actions/runs/29477965230
 
 ## Result
 
-`PASS` for the V2 signer commit `0fd0d26`; the two subsequent fixture/guard commits await push and CI because GitHub connectivity is temporarily unavailable.
+`PASS`
 
 The successful workflow completed with recursive submodules and a clean checkout. It ran:
 
@@ -29,8 +29,8 @@ The successful workflow completed with recursive submodules and a clean checkout
 
 The previously quoted total of 170 was arithmetic drift and is retired.
 
-The latest local run on `ae7334d` also passed all 182 JavaScript tests, all
-workspace typechecks and the production frontend build.
+The final CI run passed all 182 JavaScript tests, all workspace typechecks,
+the production frontend build and the complete Foundry gate.
 
 ## Solidity test count
 
