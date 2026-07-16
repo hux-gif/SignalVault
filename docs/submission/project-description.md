@@ -1,44 +1,40 @@
-# SignalVault 鈥?Private Intent, Confidential Compute, Verifiable Execution
+# SignalVault - Private Intent, Verifiable FXRP Execution
 
-SignalVault is a personal FXRP vault on Flare Coston2 that bridges private user intent with on-chain verifiable execution through a confidential compute boundary.
+SignalVault is a deployed personal FXRP strategy vault on Flare Coston2. It converts a private risk intent into an authenticated, fee-aware differential allocation between idle FXRP and a real Upshift position, with bounded-loss execution and a verified withdrawal path.
 
-## Problem
+## Target user and problem
 
-DeFi vaults require users to publicly broadcast their investment strategy. This exposes intent to MEV, front-running, and copy-trading. Users need a way to express private investment intent that is evaluated confidentially and executed verifiably on-chain.
+SignalVault is designed for XRP holders who want automated DeFi allocation without publishing their complete risk thresholds, timing preferences and strategy rationale. Conventional onchain automation exposes those inputs before execution, making strategies easier to copy or anticipate.
 
-## Solution
+## Product flow
 
-SignalVault introduces a three-layer architecture:
+1. The owner deposits FXRP into a personal, non-transferable SignalVaultV2.
+2. The plaintext intent and salt stay offchain; only a salted commitment is submitted.
+3. A Mode B operator signer reads live FTSOv2 data and evaluates the private intent through an FCC-compatible interface.
+4. It signs a constrained EIP-712 `TEEResultV2` containing the commitment, nonce, deadline, FTSO timestamp, allocation, risk limits and frozen Router configuration hash.
+5. SignalVaultV2 authenticates the result and StrategyRouterV2 performs a fee-aware differential rebalance between idle FXRP and Upshift.
+6. The result hash becomes the public execution ID, linking the private decision boundary to verifiable onchain evidence.
 
-1. **Private Intent** 鈥?Users submit only a commitment hash. The plaintext intent never touches the chain.
-2. **Confidential Decision** 鈥?A trusted compute boundary (FCC Mode B: local deterministic signer on Coston2) evaluates the private intent against market conditions (FTSOv2) and produces an authenticated allocation result.
-3. **Verifiable Execution** 鈥?The SignalVaultV2 contract verifies the TEE result signature, binds it to the frozen Router configuration hash, and executes a differential rebalance through StrategyRouterV2. Every execution emits an `AllocationExecuted` event with `executionId` linked to the TEE `resultHash`.
+## Live Coston2 evidence
 
-## Architecture
+- SignalVaultV2: `0x730CbAc00b4bfbBE4D9985Bf4eCe222bB6399898`
+- StrategyRouterV2: `0x1d64CE2a9293F248a7298135932bE9674d39a764`
+- Deposit: `0x245f207e77f19c3246e84c1df7f1e33794af124263ceffe07850832008376d79`
+- Commitment: `0x8424df2d4833dd07521c529654b3df54a77291fbcd8141cf77fc31d253dcdd27`
+- Rebalance: `0xe38ed07e2f77a03b29cc6ba57bc09cfbc2e18f8eda43a7819510f2b019ec2d23`
+- Withdrawal: `0xe550cd5bde1ae67f15e1ae29f16eaeefe08a1410d18dde9a889a7872d790d1ba`
 
-```
-FXRP 鈫?SignalVaultV2 deposit 鈫?Private intent commitment
-鈫?FCC Mode B (local signer) 鈫?TEEResultV2 + EIP-712 signature
-鈫?FTSOv2 price feed 鈫?SignalVaultV2 verification
-鈫?StrategyRouterV2 rebalance 鈫?IdleAdapterV2 + UpshiftAdapterV2
-鈫?Withdrawal waterfall
-```
+The verified flow deposited 5 FXRP, executed a 50/50 Idle/Upshift allocation, created a real Upshift LP position and redeemed 1,000,000 shares for 997,500 FXRP base units.
 
-## Flare Integration
+## Bounty positioning
 
-- **FXRP**: Vault deposit asset on Coston2
-- **Upshift**: Yield strategy adapter (real protocol integration)
-- **FTSOv2**: Price feed for allocation decisions
-- **FCC**: Confidential compute boundary (Mode B)
+Primary: **Bounty 1 - Interoperable Asset Products**. SignalVault gives FXRP a programmable, risk-constrained DeFi allocation and withdrawal path on Flare.
 
-## Bounties
+Secondary: **Bounty 2 - Confidential Compute Apps**. SignalVault currently uses an FCC-compatible Mode B simulated attestation boundary. It demonstrates private-intent evaluation, authenticated EIP-712 results and verifiable onchain consumption, but does not claim hardware-backed TEE execution.
 
-1. **Interoperable Asset Products** 鈥?FXRP vault with Upshift integration
-2. **Confidential Compute Apps** 鈥?Private intent with TEE attestation
+## Limitations
 
-## Known Limitations
-
-- FCC Mode B uses local deterministic signer, NOT hardware TEE
-- Coston2 testnet only, not mainnet
-- No guaranteed yield or profit
-- Single-user personal vault (non-transferable shares)
+- Coston2 testnet only; not audited and not for real funds.
+- Mode B trusts an operator-held signer key and provides no hardware attestation.
+- Single-owner personal vault with non-transferable shares.
+- Production use requires an external audit and hardware-backed FCC integration.

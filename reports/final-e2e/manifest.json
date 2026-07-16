@@ -2,7 +2,7 @@
   "name": "SignalVault Final E2E",
   "version": "1.0",
   "date": "2026-07-16",
-  "gitSha": "472232ec9225d64ce7c7b4bcb520a2c28e8393bd",
+  "gitSha": "f013cdb1ef8656a0343444709feb4f022803f428",
   "network": "coston2",
   "chainId": 114,
   "status": "LIVE_E2E_VERIFIED",
@@ -11,9 +11,9 @@
     "javascript": 182,
     "foundry": "complete suite passed in CI; exact count not exported"
   },
-  "verificationUrl": "https://github.com/hux-gif/SignalVault/actions/runs/29477965230",
-  "frontendUrl": null,
-  "videoUrl": null,
+  "verificationUrl": "https://github.com/hux-gif/SignalVault/actions/runs/29480218456",
+  "frontendUrl": "HUMAN_ACTION_REQUIRED_ENABLE_GITHUB_PAGES",
+  "videoUrl": "HUMAN_ACTION_REQUIRED_UPLOAD_VIDEO",
   "coston2": {
     "deployed": true,
     "deploymentManifest": "deployments/coston2-v2.json",

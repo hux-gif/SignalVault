@@ -1,47 +1,33 @@
-# SignalVault Demo Script (3-5 minutes)
+# SignalVault Demo Script (2-3 minutes)
 
-## Setup (0:00-0:30)
+## Problem (0:00-0:20)
 
-1. Show the SignalVault repository on GitHub
-2. Explain the three-screen architecture: Private Intent → Confidential Decision → Verifiable Execution
-3. Note: This runs on Flare Coston2 testnet
+Explain that public DeFi automation can reveal a user's complete risk intent before execution.
 
-## Demo (0:30-4:00)
+## Live Coston2 vault (0:20-0:40)
 
-### Step 1: Deposit (0:30-1:00)
-- Open the frontend
-- Screen 1: Private Intent
-- Explain: user deposits FXRP into SignalVaultV2
-- Show vault address and nonce
+Open the public evidence dashboard, connect a wallet and confirm Coston2 chain ID 114. Show the deployed SignalVaultV2 address.
 
-### Step 2: Private Intent (1:00-2:00)
-- User selects risk level (Conservative/Balanced/Growth)
-- User enters private salt
-- Explain: only commitment hash goes on-chain, never plaintext
-- Submit intent
+## Private intent (0:40-1:00)
 
-### Step 3: Confidential Decision (2:00-3:00)
-- Screen 2: Confidential Decision
-- FCC Mode B evaluates the private intent
-- Show resultHash, allocation, FTSO value, signature status
-- Explain: Mode B is local signer, NOT hardware TEE
+Show the private risk preference and salt boundary. Open the real commitment transaction and explain that only the salted commitment reaches the chain.
 
-### Step 4: Verifiable Execution (3:00-4:00)
-- Screen 3: Verifiable Execution
-- Show vault NAV, allocation, executionId
-- Show transaction evidence with explorer links
-- Explain: executionId links TEE result to on-chain event
+## FTSOv2 and Mode B result (1:00-1:20)
 
-## Closing (4:00-5:00)
+Show the live FTSOv2 value/timestamp and signed `TEEResultV2`. State clearly that the Mode B operator signer evaluates the intent through an FCC-compatible interface; this is not hardware TEE execution.
 
-1. Recap: Private intent → confidential evaluation → verifiable execution
-2. Note: All code is open source on GitHub
-3. Show the successful verification workflow: complete Foundry suite plus 182 JavaScript tests
-4. Q&A
+## Execution and position (1:20-2:05)
+
+Open the rebalance transaction. Show the 50/50 Idle/Upshift target, real Upshift LP balance, net NAV, gross NAV and available liquidity. Confirm `executionId == resultHash`.
+
+## Withdrawal and proof (2:05-2:40)
+
+Show the withdrawal of 1,000,000 shares and receipt of 997,500 FXRP base units. Open all four Explorer transactions.
 
 ## Key Messages
 
 - "Your private intent never touches the chain"
 - "FCC Mode B simulates TEE attestation on Coston2"
 - "Every execution is verifiable via executionId linkage"
-- "The Upshift adapter targets the real protocol interface; the current live SignalVaultV2 deployment is still pending"
+- "SignalVaultV2 is deployed on Coston2 and the evidence includes a real Upshift position and withdrawal"
+- "Testnet only, not audited, not for real funds, and Mode B is not hardware TEE"

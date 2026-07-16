@@ -14,7 +14,7 @@ Private Intent → FCC Mode B (Local Signer) → TEEResultV2 → SignalVaultV2 �
 
 - Private intent is NEVER stored on-chain
 - Only a commitment hash is submitted to SignalVaultV2
-- FCC evaluates the private intent against FTSOv2 market conditions
+- The Mode B operator signer evaluates the private intent through an FCC-compatible interface using FTSOv2 market data
 - Authenticated TEEResultV2 with EIP-712 signature
 - Replay protection via resultHash
 
@@ -23,6 +23,8 @@ Private Intent → FCC Mode B (Local Signer) → TEEResultV2 → SignalVaultV2 �
 **Mode B — FCC-compatible simulated TEE attestation on Coston2**
 
 This is NOT Mode C (real hardware TEE). The local signer simulates the TEE boundary for Coston2 demonstration.
+
+The prototype does not implement hardware TEE execution, remote hardware attestation, enclave measurement verification, a hardware-bound signer key or a production FCC deployment.
 
 ## Verifiable Execution
 

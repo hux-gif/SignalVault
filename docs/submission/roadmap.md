@@ -1,28 +1,18 @@
-# SignalVault Roadmap
+# Roadmap
 
-## Current (Coston2)
+## Completed during Flare Summer Signal
 
-- StrategyRouterV2: COMPLETE (Tasks 1-10)
-- SignalVaultV2: COMPLETE (SV1-SV9)
-- FCC Mode B: COMPLETE (local signer)
-- FTSOv2 Reader: COMPLETE
-- Frontend: COMPLETE (three-screen)
-- Anvil E2E: COMPLETE
-- Coston2 deployment: PENDING (HUMAN ACTION REQUIRED)
+- SignalVaultV2, StrategyRouterV2, IntentVerifierV2 and Idle/Upshift adapters.
+- Coston2 deployment with frozen configuration.
+- Live FXRP deposit, salted commitment, FTSOv2 input, Mode B signed result, real Upshift allocation and partial withdrawal.
+- Live Coston2 evidence dashboard with wallet and network verification.
+- Reproducible Node and Foundry CI plus deployment/E2E manifests.
 
-## Next Steps
+## Next steps
 
-1. **Coston2 Deployment** — Deploy all contracts to Coston2 with real FXRP and Upshift addresses
-2. **Coston2 E2E** — Execute real protocol loop on Coston2 testnet
-3. **FCC Mode C** — Integrate real TEE hardware (Intel SGX / AMD SEV)
-4. **Flare Mainnet** — Deploy on Flare mainnet after security audit
-5. **Multi-User Vault** — Extend from personal to multi-user vault
-6. **Additional Adapters** — Firelight, SparkDEX when available on Coston2
-7. **Frontend Production** — Full-featured dashboard with wallet integration
-
-## Not Planned
-
-- AI price prediction
-- Guaranteed yield
-- MEV protection beyond differential execution
-- Cross-chain vault (single-chain only)
+1. Replace Mode B operator signing with hardware-backed FCC execution and remote attestation.
+2. Bind enclave measurement and a hardware-protected signer key to onchain verification.
+3. Complete an independent smart-contract and operational security audit.
+4. Prepare Flare mainnet/FAssets production deployment and monitoring.
+5. Validate the personal-vault model with pilot users before considering multi-user isolation.
+6. Add broader strategy adapters only after security review and proven user demand.

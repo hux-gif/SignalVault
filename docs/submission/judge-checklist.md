@@ -1,41 +1,29 @@
 # Judge Checklist
 
-Current status: pre-deployment package. The live steps below become available only after the Coston2 deployment manifest and public frontend URL are populated.
+- Repository: https://github.com/hux-gif/SignalVault/tree/signalvault-final
+- Final release commit: `f013cdb1ef8656a0343444709feb4f022803f428`
+- Full verification: https://github.com/hux-gif/SignalVault/actions/runs/29480218456
+- Public dashboard: HUMAN ACTION REQUIRED - enable GitHub Pages, then record the real URL.
+- Demo video: HUMAN ACTION REQUIRED.
 
-## Three-minute evidence review
+## Coston2 contracts
 
-1. Open the public frontend URL recorded in `reports/final-e2e/manifest.json`.
-2. Confirm the network is Flare Coston2, chain ID 114.
-3. Review the private/public boundary on the Private Intent screen.
-4. Confirm the decision screen labels the service as `FCC-compatible Mode B simulated attestation — NOT hardware TEE`.
-5. Compare `resultHash` with the execution event's `executionId`.
-6. Open the Coston2 Explorer links for deployment and execution transactions.
-7. Review pre/post NAV, allocation, balance and withdrawal evidence.
+- IntentVerifierV2: `0x2C7b2a5620fbf25a65c81257F16b8437f5Af492a`
+- StrategyRouterV2: `0x1d64CE2a9293F248a7298135932bE9674d39a764`
+- IdleAdapterV2: `0xD0Ee1664e21aE9529f6cCCf94A70C29C7396fFD8`
+- UpshiftAdapterV2: `0x6bF0f5f7e9595171246C888F9AC10c830e1D81Db`
+- SignalVaultV2: `0x730CbAc00b4bfbBE4D9985Bf4eCe222bB6399898`
 
-## Interactive flow after deployment
+## Three-minute verification
 
-1. Connect a wallet and switch to Coston2.
-2. Obtain test FXRP using the current official Flare testnet instructions.
-3. Approve and deposit test FXRP into the personal SignalVaultV2.
-4. Enter a private risk preference and local salt. Do not reuse the salt.
-5. Submit only the commitment and encrypted payload to the Vault.
-6. Request a Mode B signed `TEEResultV2`.
-7. Inspect allocation, FTSO value/timestamp, deadline and signer status.
-8. Submit the result and execute the differential rebalance.
-9. Open the receipt and `AllocationExecuted` event in Coston2 Explorer.
-10. Perform a partial withdrawal and confirm the withdrawal waterfall.
+1. Open the dashboard and connect an EIP-1193 wallet.
+2. Confirm the network guard targets Coston2, chain ID 114.
+3. Review live Router net NAV, gross NAV and available liquidity.
+4. Review the private-intent, Mode B decision and execution screens.
+5. Open the Deposit, Commitment, Rebalance and Withdrawal Explorer links.
+6. Confirm the rebalance event execution ID equals the signed result hash.
+7. Review `docs/submission/existing-vs-new.md` and `docs/submission/known-limitations.md`.
 
-## Safety and limitations
+## Required disclosure
 
-- Testnet only; do not use real funds.
-- Not audited and not financial advice.
-- Mode B trusts an operator-held signer key and does not provide hardware attestation.
-- SignalVault shares are non-transferable and the Vault is single-owner.
-- If no deployment addresses or transaction hashes appear in the manifest, treat the package as a local prototype, not a working live app.
-
-## Human-dependent fields
-
-- Public frontend URL: pending hosting.
-- Video URL: pending upload.
-- SignalVaultV2 Coston2 addresses: pending wallet-authorized deployment.
-- Example execution and withdrawal transactions: pending live E2E.
+The dashboard is a live Coston2 evidence dashboard with wallet and network verification, not a complete self-service production dApp. Mode B is simulated attestation and is not hardware-backed TEE execution.

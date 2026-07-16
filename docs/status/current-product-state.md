@@ -4,43 +4,32 @@ Snapshot date: 2026-07-16
 
 Branch: `signalvault-final`
 
-Local and remote HEAD at audit start: `f4492e48e4a3eda61fe9bd379753426390d79c5b`
-Ahead/behind at audit start: `0/0`
+Release commit: `f013cdb1ef8656a0343444709feb4f022803f428`
 
-This file records evidence observed from files and commands. It does not infer status from the README.
+| Module | Status | Evidence |
+| --- | --- | --- |
+| StrategyRouterV2 | `COMPLETE` | Full CI and live rebalance |
+| SignalVaultV2 | `DEPLOYED_COSTON2` | `0x730CbAc00b4bfbBE4D9985Bf4eCe222bB6399898` |
+| IntentVerifierV2 | `DEPLOYED_COSTON2` | Live authenticated result |
+| IdleAdapterV2 | `DEPLOYED_COSTON2` | Live 50/50 allocation |
+| UpshiftAdapterV2 | `DEPLOYED_COSTON2` | Real LP position |
+| FTSOv2 | `LIVE_E2E_VERIFIED` | Live value and timestamp bound into result |
+| FCC | `TESTED_LOCAL` | Mode B FCC-compatible simulated attestation; not hardware TEE |
+| Frontend | `DEMO_READY` | Live RPC evidence dashboard; public URL requires Pages enablement |
+| Coston2 E2E | `LIVE_E2E_VERIFIED` | Deposit, commitment, rebalance and withdrawal |
+| Submission docs | `DEMO_READY` | Video and DoraHacks upload remain human actions |
 
-| Module | Files | Compile | Tests | Independent review | Coston2 | Frontend usable |
-| --- | --- | --- | --- | --- | --- | --- |
-| StrategyRouterV2 | yes | historical pass; clean-clone rerun pending | historical 575-suite claim | self-review recorded | not deployed | read-only presentation only |
-| SignalVaultV2 | yes | historical pass; clean-clone rerun pending | 28 focused tests reported | pending final branch review | not deployed | static presentation only |
-| IntentVerifierV2 | yes | historical pass; clean-clone rerun pending | focused and fixture tests present | pending final branch review | not deployed | not directly operated |
-| FCC Mode B | yes | TypeScript typecheck passed | local-signer 96/96 passed | trust-boundary review pending | simulated only | static presentation only |
-| FTSOv2 | yes | historical pass; clean-clone rerun pending | 5 tests reported | pending final branch review | reader not deployed | static values only |
-| Frontend | yes | build passed in working tree | 6/6 passed | pending usability review | no live addresses | no; static shell |
-| Deployment scripts | yes | historical pass; clean-clone rerun pending | deployment assertions present | pending | broadcast not performed | no |
-| Anvil E2E | yes | format defect found during clean clone | not yet rerun in this audit | pending | n/a | no |
-| Coston2 E2E | no complete product loop | n/a | n/a | n/a | blocked on deployment and wallet | no |
-| Submission docs | yes | n/a | n/a | factual reconciliation pending | addresses absent | demo package incomplete |
+## Verification
 
-## Evidence baseline
+- JavaScript/TypeScript: 182 tests passed (109 local-signer, 6 frontend, 67 integration).
+- Typecheck and production frontend build: pass.
+- Complete Foundry format, build, size, test and lint gate: pass.
+- Final workflow: https://github.com/hux-gif/SignalVault/actions/runs/29480218456
+- Deployment and E2E sources: `deployments/coston2-v2.json`, `reports/final-e2e/manifest.json`, `reports/final-e2e/transactions.json`.
 
-- Working tree at audit start: only `frontend/dist/` untracked.
-- WIP patch backups: `D:\signalvault-current-wip.patch` and `D:\signalvault-current-staged.patch` (both empty because tracked work was already committed).
-- JavaScript tests reproduced before this snapshot: local-signer 96, frontend 6, integration 67; 169 total. The earlier total of 170 was arithmetic drift and must not be reused.
-- Frontend typecheck reproduced: pass.
-- Current Foundry count: `HISTORICAL_REPORTED / NOT_CURRENTLY_REPRODUCED` until clean-clone verification completes.
-- Current Coston2 product addresses: none; `deployments/coston2.json` contains null values.
-- FCC mode: `FCC-compatible simulated TEE attestation`, not hardware TEE.
-- Frontend: static shell with placeholder addresses, result hash, NAV, allocation and transaction list.
+## Human actions remaining
 
-## Status vocabulary
-
-- StrategyRouterV2: `TESTED_LOCAL`; clean-clone verification being regenerated.
-- SignalVaultV2: `IMPLEMENTED_UNREVIEWED`.
-- IntentVerifierV2: `TESTED_LOCAL`.
-- FCC Mode B: `TESTED_LOCAL`.
-- FTSOv2: `TESTED_LOCAL` based on historical Solidity run; current rerun pending.
-- Frontend: `TESTED_LOCAL`, not `DEMO_READY`.
-- Coston2 deployment: not `DEPLOYED_COSTON2`.
-- Live E2E: not `LIVE_E2E_VERIFIED`.
-- Submission package: `PRESENT_WIP`.
+1. Enable GitHub Pages with GitHub Actions as the source and record the real URL.
+2. Run a small external usability session or retain `EXTERNAL FEEDBACK PENDING`.
+3. Record and upload the 2-3 minute demo video.
+4. Complete and submit the DoraHacks form.

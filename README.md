@@ -10,6 +10,21 @@ protection. The blockchain proves the resulting execution.
 
 **Status:** active development · testnet-focused · not audited
 
+**Live Coston2 evidence dashboard:** pending GitHub Pages enablement
+
+**Demo video:** pending upload
+**Final verification:** https://github.com/hux-gif/SignalVault/actions/runs/29480218456
+
+### Live deployment
+
+- SignalVaultV2: `0x730CbAc00b4bfbBE4D9985Bf4eCe222bB6399898`
+- StrategyRouterV2: `0x1d64CE2a9293F248a7298135932bE9674d39a764`
+- IntentVerifierV2: `0x2C7b2a5620fbf25a65c81257F16b8437f5Af492a`
+- IdleAdapterV2: `0xD0Ee1664e21aE9529f6cCCf94A70C29C7396fFD8`
+- UpshiftAdapterV2: `0x6bF0f5f7e9595171246C888F9AC10c830e1D81Db`
+
+Verified transactions: [Deposit](https://coston2-explorer.flare.network/tx/0x245f207e77f19c3246e84c1df7f1e33794af124263ceffe07850832008376d79) · [Commitment](https://coston2-explorer.flare.network/tx/0x8424df2d4833dd07521c529654b3df54a77291fbcd8141cf77fc31d253dcdd27) · [Rebalance](https://coston2-explorer.flare.network/tx/0xe38ed07e2f77a03b29cc6ba57bc09cfbc2e18f8eda43a7819510f2b019ec2d23) · [Withdrawal](https://coston2-explorer.flare.network/tx/0xe550cd5bde1ae67f15e1ae29f16eaeefe08a1410d18dde9a889a7872d790d1ba)
+
 ---
 
 ## The problem
@@ -99,7 +114,7 @@ implemented on the public integration branch:
 - three-screen frontend presentation
 - Canonical integration test using real adapters and the production Router
 
-Coston2 deployment, live product E2E and a wallet-connected frontend remain pending.
+The V2 system is deployed on Coston2 with a verified FXRP/Upshift product E2E. The frontend is a live evidence dashboard with wallet and network verification; public hosting requires GitHub Pages enablement.
 
 ---
 
@@ -149,15 +164,15 @@ Coston2 deployment, live product E2E and a wallet-connected frontend remain pend
 | EIP-712 V2 verifier and fixture    | Completed                                    |
 | Gate 4B Tasks 1–6                  | Complete, reviewed and frozen                |
 | Gate 4B full-branch rereview       | Passed                                       |
-| IdleAdapterV2                      | Implemented, repaired, not deployed          |
-| UpshiftAdapterV2                   | Implemented, repaired, not deployed          |
+| IdleAdapterV2                      | Deployed on Coston2                           |
+| UpshiftAdapterV2                   | Deployed on Coston2                           |
 | StrategyRouterV2 Tasks 1–10        | Complete, reviewed and locally verified      |
 | StrategyRouterV2 integration suite | 4 tests passing with real adapters          |
 | SignalVaultV2                       | Implemented; final review tracked in CI      |
-| V2 Anvil E2E                        | Script implemented; evidence run pending     |
+| V2 Anvil E2E                        | Script implemented; Coston2 live E2E verified |
 | SignalVault V2 Coston2 deployment   | Deployed; addresses in deployments/coston2-v2.json |
 | FCC Mode B                          | Local simulated attestation; not hardware TEE |
-| Frontend evidence views             | Static presentation; wallet/live data pending |
+| Frontend evidence views             | Live RPC dashboard; public hosting pending    |
 
 ---
 
@@ -311,7 +326,7 @@ Frontend build: pass
 Forge fmt/build/build --sizes/test/lint: pass
 ```
 
-Canonical evidence: https://github.com/hux-gif/SignalVault/actions/runs/29474343314
+Canonical evidence: https://github.com/hux-gif/SignalVault/actions/runs/29480218456
 
 An exact Foundry count is intentionally not quoted until authenticated workflow
 log export is stored with the repository. This retires older conflicting counts.
@@ -362,8 +377,6 @@ The following Router-level mitigations are now implemented and locally verified:
 - malicious or non-standard ERC-20 behavior: balance-delta reconciliation, no
   trusted return value from `instantRedeem`
 
-### Planned mitigations (Gate 4C)
-
 ---
 
 ## Roadmap
@@ -371,11 +384,11 @@ The following Router-level mitigations are now implemented and locally verified:
 ```text
 Gate 4B — fee-aware Adapter V2
 Gate 4C — differential RouterV2 and net-NAV SignalVaultV2
-Gate 4D — Coston2 V2 deployment and live product E2E
-Coston2 V2 execution evidence
-Confidential Space spike
-FCC migration when publicly available
-Wallet-connected frontend and public demo hosting
+Hardware-backed FCC execution and remote attestation
+Independent security audit
+Flare mainnet/FAssets production readiness
+Pilot-user validation and operational monitoring
+Broader adapters only after security review and demonstrated demand
 ```
 
 ---

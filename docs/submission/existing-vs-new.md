@@ -24,7 +24,7 @@ No pre-hackathon production deployment is claimed. The repository history used f
 - FTSOv2 market-data input bound by timestamp into the signed result.
 - EVM contracts and EIP-712 verification deployed through a Coston2-ready Foundry script.
 
-SignalVaultV2 itself has not yet been deployed to Coston2. Historical Upshift probes are not represented as SignalVaultV2 live E2E evidence.
+SignalVaultV2 and its V2 dependencies were deployed to Coston2 on 2026-07-16. The recorded live E2E uses real SignalVaultV2 transactions and is kept separate from historical Upshift probes.
 
 ## Improved during the hackathon
 
@@ -38,8 +38,7 @@ SignalVaultV2 itself has not yet been deployed to Coston2. Historical Upshift pr
 
 ## Future roadmap
 
-1. Broadcast the V2 deployment to Coston2 after wallet authorization and revalidation of external addresses.
-2. Run and record one complete live SignalVaultV2 flow.
-3. Replace frontend placeholders with the deployment manifest, wallet writes, receipts and events.
-4. Replace Mode B operator signing with real FCC attestation when the required service and credentials are available.
-5. Obtain an independent security audit before any mainnet or real-funds use.
+1. Replace Mode B operator signing with hardware-backed FCC execution and remote attestation.
+2. Obtain an independent security audit before any mainnet or real-funds use.
+3. Validate usability with pilot users and record honest feedback.
+4. Prepare Flare mainnet/FAssets production readiness and operational monitoring.

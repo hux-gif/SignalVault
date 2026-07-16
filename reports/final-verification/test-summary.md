@@ -1,8 +1,8 @@
 # Final Verification Summary
 
-Final deployment-evidence commit: `472232ec9225d64ce7c7b4bcb520a2c28e8393bd`
+Final release commit: `f013cdb1ef8656a0343444709feb4f022803f428`
 
-Final successful CI run: https://github.com/hux-gif/SignalVault/actions/runs/29477965230
+Final successful CI run: https://github.com/hux-gif/SignalVault/actions/runs/29480218456
 
 ## Result
 
