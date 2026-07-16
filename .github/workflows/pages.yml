@@ -2,7 +2,7 @@ name: Deploy frontend
 
 on:
   push:
-    branches: [signalvault-final]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
