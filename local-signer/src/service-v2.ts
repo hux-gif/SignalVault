@@ -94,6 +94,7 @@ export type V2AllocationService = (
 export function createV2AllocationService(
   config: SignerConfig,
   now: () => bigint = () => BigInt(Math.floor(Date.now() / 1000)),
+  expectedChainId: bigint = 114n,
 ): V2AllocationService {
   return async (input, ctx) => {
     const currentTime = now();
@@ -103,8 +104,8 @@ export function createV2AllocationService(
       invalid("intentVerifier does not match configured verifier");
     }
     if (input.chainId !== config.chainId) invalid("chainId does not match configured chainId");
-    if (config.chainId !== 114n) {
-      invalid("V2 signer is locked to Coston2 (chainId=114); refusing to sign for another chain");
+    if (config.chainId !== expectedChainId) {
+      invalid(`V2 signer is locked to chainId=${expectedChainId}; refusing to sign for another chain`);
     }
     const commitment = computeIntentCommitment(
       input.user,

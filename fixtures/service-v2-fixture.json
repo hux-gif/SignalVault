@@ -1,0 +1,70 @@
+{
+  "testOnly": true,
+  "description": "service-v2 produced V2 result + signature, consumed by ServiceV2Fixture.t.sol",
+  "generatedBy": "local-signer/scripts/generate-service-v2-fixture.ts",
+  "generatedAt": "2026-07-16T05:49:52.898Z",
+  "chainId": "31337",
+  "now": "1999999000",
+  "plainIntent": {
+    "riskLevel": 1,
+    "targetAprBps": 800,
+    "maxDrawdownBps": 500,
+    "rebalanceWindow": 3600,
+    "salt": "0x4444444444444444444444444444444444444444444444444444444444444444"
+  },
+  "riskConfiguration": {
+    "minimumRebalanceInterval": "3600",
+    "minimumAllocationChangeBps": "100",
+    "maximumRebalanceLossBps": "100",
+    "maximumPreviewDeviationBps": "100",
+    "allocationToleranceBps": "100"
+  },
+  "routerConfiguration": {
+    "chainId": "31337",
+    "vault": "0x1000000000000000000000000000000000000001",
+    "router": "0x3000000000000000000000000000000000000004",
+    "asset": "0x4000000000000000000000000000000000000005",
+    "upshiftAdapter": "0x5000000000000000000000000000000000000006",
+    "idleAdapter": "0x6000000000000000000000000000000000000007",
+    "capabilityProfile": "0x7498d31e561984b05a8781d83e877e14abc931043446e1f275b8ee0a7db7f208",
+    "riskConfigurationHash": "0xbc1236d24d6b8d7b511a12c32113ea33579d6ad34c14e9f9fa5d0a1e55d93836",
+    "version": "1"
+  },
+  "expected": {
+    "signer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "riskConfigurationHash": "0xbc1236d24d6b8d7b511a12c32113ea33579d6ad34c14e9f9fa5d0a1e55d93836",
+    "routerConfigHash": "0xf3ab185d825256a5aea6a9ba00b6feb03bf2d3a75cfbd588c1d244407d0ae405",
+    "intentCommitment": "0x0b480e9faa834df986e67bb5bcf3b45ad7481ea39314b767387bdce87bd842d7"
+  },
+  "input": {
+    "user": "0x3000000000000000000000000000000000000003",
+    "vault": "0x1000000000000000000000000000000000000001",
+    "intentVerifier": "0x2000000000000000000000000000000000000002",
+    "nonce": "7",
+    "ftso": {
+      "price": "100000",
+      "timestamp": "1999998950"
+    }
+  },
+  "result": {
+    "user": "0x3000000000000000000000000000000000000003",
+    "vault": "0x1000000000000000000000000000000000000001",
+    "intentCommitment": "0x0b480e9faa834df986e67bb5bcf3b45ad7481ea39314b767387bdce87bd842d7",
+    "capabilityProfile": "0x7498d31e561984b05a8781d83e877e14abc931043446e1f275b8ee0a7db7f208",
+    "routerConfigHash": "0xf3ab185d825256a5aea6a9ba00b6feb03bf2d3a75cfbd588c1d244407d0ae405",
+    "upshiftBps": "5000",
+    "firelightBps": "0",
+    "sparkdexBps": "0",
+    "idleBps": "5000",
+    "nonce": "7",
+    "deadline": "1999999300",
+    "ftsoPriceTimestamp": "1999998950",
+    "chainId": "31337",
+    "minimumPostNAV": "1000000000000000000",
+    "maximumRebalanceLossBps": "100",
+    "maximumPreviewDeviationBps": "100",
+    "allocationToleranceBps": "100",
+    "resultHash": "0xe392f349db6799be93c2c050343c2353980ea50541802c09c4df15cb30752681"
+  },
+  "signature": "0x932530f78aaae542332bc18738a78267b26f0fe879836eaf0c953f812059b9c028897f228fc98d55c83c921ae9e0f05f44a490986c03de0befef77dd932f179b1c"
+}
