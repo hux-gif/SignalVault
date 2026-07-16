@@ -1,107 +1,178 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getAddress } from "viem";
-import { PrivateIntentScreen } from "./screens/PrivateIntent";
-import { ConfidentialDecisionScreen } from "./screens/ConfidentialDecision";
-import { VerifiableExecutionScreen } from "./screens/VerifiableExecution";
-import { coston2 } from "./lib/chains";
-import { publicClient, SIGNALVAULT_V2_ABI, STRATEGY_ROUTER_V2_ABI } from "./lib/viem";
+import { Architecture } from "./components/Architecture";
+import { BountyCards } from "./components/BountyCards";
+import { Footer } from "./components/Footer";
+import { Hero } from "./components/Hero";
+import { IntentFlow } from "./components/IntentFlow";
+import { LiveVault } from "./components/LiveVault";
+import { Navbar } from "./components/Navbar";
+import { ProofTimeline } from "./components/ProofTimeline";
+import { SafetyGrid } from "./components/SafetyGrid";
+import { contracts, recordedSnapshot, type LiveSnapshot, type RpcState } from "./lib/evidence";
+import { publicClient, STRATEGY_ROUTER_V2_ABI } from "./lib/viem";
+
+type ProviderListener = (value: unknown) => void;
+
+interface EthereumProvider {
+  on?: (event: "accountsChanged" | "chainChanged" | "disconnect", listener: ProviderListener) => void;
+  removeListener?: (event: "accountsChanged" | "chainChanged" | "disconnect", listener: ProviderListener) => void;
+  request(args: { method: string; params?: unknown[] }): Promise<unknown>;
+}
 
 declare global {
   interface Window {
-    ethereum?: { request(args: { method: string; params?: unknown[] }): Promise<unknown> };
+    ethereum?: EthereumProvider;
   }
 }
 
-export default function App() {
-  const [screen, setScreen] = useState(0);
-  const [account, setAccount] = useState<string | null>(null);
-  const [walletStatus, setWalletStatus] = useState("Wallet not connected");
-  const [live, setLive] = useState({ net: 3990000n, gross: 4002499n, liquidity: 3990000n, nonce: 1n });
+const routerAddress = contracts.find((contract) => contract.name === "StrategyRouterV2")!.address;
+const COSTON2_CHAIN_ID = "0x72";
+const COSTON2_WALLET_PARAMETERS = {
+  blockExplorerUrls: ["https://coston2-explorer.flare.network"],
+  chainId: COSTON2_CHAIN_ID,
+  chainName: "Flare Testnet Coston2",
+  nativeCurrency: { decimals: 18, name: "Coston2 Flare", symbol: "C2FLR" },
+  rpcUrls: ["https://coston2-api.flare.network/ext/C/rpc"],
+};
 
-  const vaultAddress = "0x730CbAc00b4bfbBE4D9985Bf4eCe222bB6399898";
-  const routerAddress = "0x1d64CE2a9293F248a7298135932bE9674d39a764";
-  const resultHash = "0x68f2749b7b7979f0d4edcbca1e5d2d3dcf397848cec326531c4e6e0ca1468110";
-  const transactionHashes = [
-    "0x245f207e77f19c3246e84c1df7f1e33794af124263ceffe07850832008376d79",
-    "0x8424df2d4833dd07521c529654b3df54a77291fbcd8141cf77fc31d253dcdd27",
-    "0xe38ed07e2f77a03b29cc6ba57bc09cfbc2e18f8eda43a7819510f2b019ec2d23",
-    "0xe550cd5bde1ae67f15e1ae29f16eaeefe08a1410d18dde9a889a7872d790d1ba",
-  ];
+function hasErrorCode(error: unknown, code: number) {
+  return typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === code;
+}
+
+function numericField(value: unknown, field: "idleBps" | "upshiftBps", fallback: number) {
+  if (typeof value !== "object" || value === null) return fallback;
+  const candidate = (value as Record<string, unknown>)[field];
+  if (typeof candidate === "bigint") return Number(candidate);
+  if (typeof candidate === "number") return candidate;
+  return fallback;
+}
+
+export default function App() {
+  const [account, setAccount] = useState<string | null>(null);
+  const [rpcState, setRpcState] = useState<RpcState>("loading");
+  const [snapshot, setSnapshot] = useState<LiveSnapshot>(recordedSnapshot);
+  const [walletStatus, setWalletStatus] = useState("Wallet not connected");
+
+  const loadLiveSnapshot = useCallback(async () => {
+    setRpcState("loading");
+    try {
+      const [netAssets, grossAssets, availableLiquidity, allocation] = await Promise.all([
+        publicClient.readContract({ address: getAddress(routerAddress), abi: STRATEGY_ROUTER_V2_ABI, functionName: "totalAssets" }),
+        publicClient.readContract({ address: getAddress(routerAddress), abi: STRATEGY_ROUTER_V2_ABI, functionName: "grossAssets" }),
+        publicClient.readContract({ address: getAddress(routerAddress), abi: STRATEGY_ROUTER_V2_ABI, functionName: "availableLiquidity" }),
+        publicClient.readContract({ address: getAddress(routerAddress), abi: STRATEGY_ROUTER_V2_ABI, functionName: "allocation" }),
+      ]);
+
+      setSnapshot({
+        availableLiquidity: availableLiquidity as bigint,
+        grossAssets: grossAssets as bigint,
+        idleBps: numericField(allocation, "idleBps", recordedSnapshot.idleBps),
+        netAssets: netAssets as bigint,
+        upshiftBps: numericField(allocation, "upshiftBps", recordedSnapshot.upshiftBps),
+      });
+      setRpcState("live");
+    } catch {
+      setSnapshot(recordedSnapshot);
+      setRpcState("degraded");
+    }
+  }, []);
 
   useEffect(() => {
-    void Promise.all([
-      publicClient.readContract({ address: getAddress(routerAddress), abi: STRATEGY_ROUTER_V2_ABI, functionName: "totalAssets" }),
-      publicClient.readContract({ address: getAddress(routerAddress), abi: STRATEGY_ROUTER_V2_ABI, functionName: "grossAssets" }),
-      publicClient.readContract({ address: getAddress(routerAddress), abi: STRATEGY_ROUTER_V2_ABI, functionName: "availableLiquidity" }),
-      publicClient.readContract({ address: getAddress(vaultAddress), abi: SIGNALVAULT_V2_ABI, functionName: "userIntentNonce" }),
-    ]).then(([net, gross, liquidity, nonce]) => setLive({
-      net: net as bigint,
-      gross: gross as bigint,
-      liquidity: liquidity as bigint,
-      nonce: nonce as bigint,
-    })).catch(() => {
-      setWalletStatus("Live RPC unavailable; showing recorded Coston2 evidence");
-    });
+    void loadLiveSnapshot();
+  }, [loadLiveSnapshot]);
+
+  useEffect(() => {
+    const provider = window.ethereum;
+    if (!provider?.on) return;
+
+    const handleChainChanged: ProviderListener = (value) => {
+      if (value !== COSTON2_CHAIN_ID) {
+        setAccount(null);
+        setWalletStatus("Switch to Coston2 · chain ID 114 to continue");
+        return;
+      }
+      setWalletStatus("Coston2 active · connect wallet");
+    };
+    const handleAccountsChanged: ProviderListener = (value) => {
+      const selected = Array.isArray(value) && typeof value[0] === "string" ? value[0] : null;
+      setAccount(selected);
+      setWalletStatus(selected ? "Wallet account changed · Coston2 chain check required" : "Wallet disconnected");
+      void provider.request({ method: "eth_chainId" }).then((chainId) => {
+        if (chainId !== COSTON2_CHAIN_ID) {
+          setAccount(null);
+          setWalletStatus("Switch to Coston2 · chain ID 114 to continue");
+        } else if (selected) {
+          setWalletStatus("Connected to Flare Coston2 · chain ID 114");
+        }
+      }).catch(() => {
+        setAccount(null);
+        setWalletStatus("Wallet network unavailable");
+      });
+    };
+    const handleDisconnect: ProviderListener = () => {
+      setAccount(null);
+      setWalletStatus("Wallet disconnected");
+    };
+
+    provider.on("chainChanged", handleChainChanged);
+    provider.on("accountsChanged", handleAccountsChanged);
+    provider.on("disconnect", handleDisconnect);
+    return () => {
+      provider.removeListener?.("chainChanged", handleChainChanged);
+      provider.removeListener?.("accountsChanged", handleAccountsChanged);
+      provider.removeListener?.("disconnect", handleDisconnect);
+    };
   }, []);
 
   async function connectWallet() {
-    if (!window.ethereum) return setWalletStatus("Install an EIP-1193 wallet to connect");
-    const chainId = await window.ethereum.request({ method: "eth_chainId" });
-    if (chainId !== "0x72") {
-      await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x72" }] });
+    if (!window.ethereum) {
+      setWalletStatus("Install an EIP-1193 wallet to connect");
+      return;
     }
-    const [selected] = await window.ethereum.request({ method: "eth_requestAccounts" }) as string[];
-    setAccount(selected);
-    setWalletStatus(`Connected to ${coston2.name}`);
+
+    try {
+      let chainId = await window.ethereum.request({ method: "eth_chainId" });
+      if (chainId !== COSTON2_CHAIN_ID) {
+        setWalletStatus("Switch to Coston2 · chain ID 114 to continue");
+        try {
+          await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: COSTON2_CHAIN_ID }] });
+        } catch (error) {
+          if (!hasErrorCode(error, 4_902)) throw error;
+          await window.ethereum.request({ method: "wallet_addEthereumChain", params: [COSTON2_WALLET_PARAMETERS] });
+          await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: COSTON2_CHAIN_ID }] });
+        }
+        chainId = await window.ethereum.request({ method: "eth_chainId" });
+        if (chainId !== COSTON2_CHAIN_ID) return;
+      }
+
+      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" }) as string[];
+      const selected = accounts[0];
+      if (!selected) {
+        setWalletStatus("No wallet account selected");
+        return;
+      }
+      setAccount(selected);
+      setWalletStatus("Connected to Flare Coston2 · chain ID 114");
+    } catch {
+      setWalletStatus("Wallet connection cancelled or Coston2 unavailable");
+    }
   }
 
   return (
     <div className="app">
-      <section className="wallet-bar">
-        <button onClick={() => void connectWallet()}>{account ? `${account.slice(0, 8)}…` : "Connect Wallet"}</button>
-        <span>{walletStatus}</span>
-      </section>
-      <nav className="screen-nav">
-        <button onClick={() => setScreen(0)}>1. Private Intent</button>
-        <button onClick={() => setScreen(1)}>2. Confidential Decision</button>
-        <button onClick={() => setScreen(2)}>3. Verifiable Execution</button>
-      </nav>
-
-      {screen === 0 && (
-        <PrivateIntentScreen
-          vaultAddress={vaultAddress}
-          nonce={live.nonce}
-          onSubmit={() => setScreen(1)}
-        />
-      )}
-
-      {screen === 1 && (
-        <ConfidentialDecisionScreen
-          fccMode="Mode B — local deterministic signer, NOT hardware TEE"
-          resultHash={resultHash}
-          allocation={{ idleBps: 5000, upshiftBps: 5000 }}
-          ftsoValue={660964n}
-          ftsoTimestamp={1784184124n}
-          nonce={1n}
-          deadline={1784184425n}
-          signatureStatus="signed"
-        />
-      )}
-
-      {screen === 2 && (
-        <VerifiableExecutionScreen
-          vaultAddress={vaultAddress}
-          routerAddress={routerAddress}
-          netNAV={live.net}
-          grossNAV={live.gross}
-          availableLiquidity={live.liquidity}
-          idleBps={5000}
-          upshiftBps={5000}
-          executionId={resultHash}
-          txHashes={transactionHashes}
-          explorerBaseUrl="https://coston2-explorer.flare.network"
-        />
-      )}
+      <Navbar account={account} onConnect={() => void connectWallet()} walletStatus={walletStatus} />
+      <main>
+        <Hero rpcState={rpcState} snapshot={snapshot} />
+        {walletStatus !== "Wallet not connected" && <div className="wallet-notice section-shell" role="status">{walletStatus}</div>}
+        <LiveVault rpcState={rpcState} snapshot={snapshot} onRetry={() => void loadLiveSnapshot()} />
+        <IntentFlow />
+        <ProofTimeline />
+        <SafetyGrid />
+        <Architecture />
+        <BountyCards />
+      </main>
+      <Footer />
     </div>
   );
 }
