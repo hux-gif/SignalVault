@@ -1,8 +1,10 @@
 # Current Product State
 
-Snapshot date: 2026-07-16  
-Branch: `signalvault-final`  
-Local and remote HEAD at audit start: `f4492e48e4a3eda61fe9bd379753426390d79c5b`  
+Snapshot date: 2026-07-16
+
+Branch: `signalvault-final`
+
+Local and remote HEAD at audit start: `f4492e48e4a3eda61fe9bd379753426390d79c5b`
 Ahead/behind at audit start: `0/0`
 
 This file records evidence observed from files and commands. It does not infer status from the README.
