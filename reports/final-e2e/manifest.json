@@ -1,0 +1,23 @@
+{
+  "name": "SignalVault Final E2E",
+  "version": "1.0",
+  "date": "2026-07-16",
+  "network": "anvil",
+  "status": "pending",
+  "steps": [
+    "deploy",
+    "deposit",
+    "submit_intent",
+    "fcc_evaluate",
+    "execute_rebalance",
+    "verify_events",
+    "withdraw"
+  ],
+  "evidenceFiles": [
+    "transactions.json",
+    "balances-before.json",
+    "balances-after.json",
+    "events.json",
+    "commands.log"
+  ]
+}

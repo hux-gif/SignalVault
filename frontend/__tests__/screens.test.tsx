@@ -10,7 +10,7 @@ describe("PrivateIntentScreen", () => {
       <PrivateIntentScreen vaultAddress="0x1234" nonce={1n} onSubmit={() => {}} />
     );
     expect(getByText("0x1234")).toBeTruthy();
-    expect(getByText("1")).toBeTruthy();
+    expect(getByText(/Next nonce: 1/)).toBeTruthy();
   });
 
   it("renders privacy note", () => {
@@ -25,7 +25,7 @@ describe("ConfidentialDecisionScreen", () => {
   it("renders FCC mode label", () => {
     const { getByText } = render(
       <ConfidentialDecisionScreen
-        fccMode="Mode B — local deterministic signer"
+        fccMode="Mode B - local deterministic signer"
         resultHash={null}
         allocation={null}
         ftsoValue={null}

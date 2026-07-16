@@ -23,9 +23,9 @@ export function VerifiableExecutionScreen({
         <p>Router: <code>{routerAddress}</code></p>
       </div>
       <div className="nav">
-        <p>Net NAV: {netNAV?.toString() || "鈥?}</p>
-        <p>Gross NAV: {grossNAV?.toString() || "鈥?}</p>
-        <p>Available Liquidity: {availableLiquidity?.toString() || "鈥?}</p>
+        <p>Net NAV: {netNAV?.toString() || "n/a"}</p>
+        <p>Gross NAV: {grossNAV?.toString() || "n/a"}</p>
+        <p>Available Liquidity: {availableLiquidity?.toString() || "n/a"}</p>
       </div>
       <div className="exposure">
         <p>Idle: {idleBps / 100}%</p>

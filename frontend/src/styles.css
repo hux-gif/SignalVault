@@ -1,0 +1,39 @@
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #0b0d12;
+  color: #e6e6e6;
+  margin: 0;
+  padding: 2rem;
+}
+.screen {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  border: 1px solid #1f2630;
+  border-radius: 12px;
+  background: #11161d;
+}
+.screen h1 { margin-top: 0; }
+.screen code {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  background: #0a0d12;
+  padding: 0 4px;
+  border-radius: 4px;
+}
+.nav p, .addresses p, .exposure p { margin: 0.25rem 0; }
+button {
+  background: #2a6df4;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+button:hover { background: #1f56c4; }
+input, select {
+  background: #0a0d12;
+  color: #e6e6e6;
+  border: 1px solid #2a3340;
+  padding: 0.4rem;
+  border-radius: 4px;
+}
