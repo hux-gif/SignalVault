@@ -1,4 +1,6 @@
-export const EXPLORER_BASE_URL = "https://coston2-explorer.flare.network";
+import { coston2 } from "./chains";
+
+export const EXPLORER_BASE_URL = coston2.blockExplorers.default.url;
 export const GITHUB_URL = "https://github.com/hux-gif/SignalVault";
 
 export const contracts = [
@@ -34,30 +36,52 @@ export const recordedSnapshot = {
 
 export const transactions = [
   {
+    block: 32_912_473,
+    receiptRows: [
+      ["Amount", "5.000000 FXRP"],
+      ["Destination", "SignalVaultV2"],
+    ],
     index: "01",
     label: "Deposit",
     detail: "5.000000 FXRP entered SignalVaultV2",
     hash: "0x245f207e77f19c3246e84c1df7f1e33794af124263ceffe07850832008376d79",
   },
   {
+    block: 32_912_587,
+    receiptRows: [
+      ["Published", "Salted commitment"],
+      ["Withheld", "Original strategy"],
+    ],
     index: "02",
-    label: "Commitment",
-    detail: "Private intent committed without disclosure",
+    label: "Private commitment",
+    detail: "A salted commitment was published. The original strategy remained offchain.",
     hash: "0x8424df2d4833dd07521c529654b3df54a77291fbcd8141cf77fc31d253dcdd27",
   },
   {
+    block: 32_912_595,
+    receiptRows: [
+      ["Allocation", "50% Idle / 50% Upshift"],
+      ["Result hash", "0x68f2749b…a1468110"],
+    ],
     index: "03",
-    label: "Rebalance",
-    detail: "Authenticated 50 / 50 differential allocation",
+    label: "Execution",
+    detail: "Signed Mode B result authenticated onchain. Idle / Upshift allocation: 50 / 50.",
     hash: "0xe38ed07e2f77a03b29cc6ba57bc09cfbc2e18f8eda43a7819510f2b019ec2d23",
   },
   {
+    block: 32_912_651,
+    receiptRows: [
+      ["Shares redeemed", "1,000,000"],
+      ["FXRP returned", "997,500 base units"],
+    ],
     index: "04",
     label: "Withdrawal",
-    detail: "1,000,000 shares → 997,500 FXRP base units",
+    detail: "1,000,000 shares redeemed. 997,500 FXRP base units returned.",
     hash: "0xe550cd5bde1ae67f15e1ae29f16eaeefe08a1410d18dde9a889a7872d790d1ba",
   },
 ] as const;
+
+export type EvidenceTransaction = (typeof transactions)[number];
 
 export type RpcState = "degraded" | "live" | "loading";
 
