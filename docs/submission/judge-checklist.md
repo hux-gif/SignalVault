@@ -1,10 +1,11 @@
 # Judge Checklist
 
-- Repository: https://github.com/hux-gif/SignalVault/tree/signalvault-final
-- Final release commit: `f013cdb1ef8656a0343444709feb4f022803f428`
-- Full verification: https://github.com/hux-gif/SignalVault/actions/runs/29480218456
+- Repository: https://github.com/hux-gif/SignalVault/tree/main
+- Frontend release commit: `028947bcad9f129fd5ccf77669fc03528c5e9b14`
+- Full verification: https://github.com/hux-gif/SignalVault/actions/runs/29501160815
+- Frontend deployment: https://github.com/hux-gif/SignalVault/actions/runs/29501161290
 - Public dashboard: https://hux-gif.github.io/SignalVault/
-- Demo video: HUMAN ACTION REQUIRED.
+- Demo video: recorded locally; public upload remains a user-owned action.
 
 ## Coston2 contracts
 
@@ -16,12 +17,12 @@
 
 ## Three-minute verification
 
-1. Open the dashboard and connect an EIP-1193 wallet.
-2. Confirm the network guard targets Coston2, chain ID 114.
-3. Review live Router net NAV, gross NAV and available liquidity.
-4. Review the private-intent, Mode B decision and execution screens.
-5. Open the Deposit, Commitment, Rebalance and Withdrawal Explorer links.
-6. Confirm the rebalance event execution ID equals the signed result hash.
+1. Open the dashboard and confirm the header reports `COSTON2 · LIVE`.
+2. Review the four canonical transaction rows and their execution receipts.
+3. Review the private/public disclosure boundary.
+4. Review live Router net NAV, gross NAV, available liquidity and exposures.
+5. Review the signed controls and five deployed contract addresses.
+6. Confirm the Mode B and Coston2 testnet disclosures.
 7. Review `docs/submission/existing-vs-new.md` and `docs/submission/known-limitations.md`.
 
 ## Required disclosure

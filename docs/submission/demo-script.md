@@ -1,33 +1,42 @@
-# SignalVault Demo Script (2-3 minutes)
+# SignalVault Demo Script (2 minutes 40 seconds, silent)
 
-## Problem (0:00-0:20)
+This script records only the public evidence dashboard. It does not open a
+wallet, expose an account or broadcast a transaction.
 
-Explain that public DeFi automation can reveal a user's complete risk intent before execution.
+## Product thesis (0:00-0:15)
 
-## Live Coston2 vault (0:20-0:40)
+Show the hero: “Private strategy. Public proof.” Keep `COSTON2 · LIVE` visible.
 
-Open the public evidence dashboard, connect a wallet and confirm Coston2 chain ID 114. Show the deployed SignalVaultV2 address.
+## Verified execution run (0:15-0:55)
 
-## Private intent (0:40-1:00)
+Select Deposit, Commitment, Rebalance and Withdrawal in sequence. Pause on each
+execution receipt so the public transaction evidence remains readable.
 
-Show the private risk preference and salt boundary. Open the real commitment transaction and explain that only the salted commitment reaches the chain.
+## Disclosure boundary (0:55-1:20)
 
-## FTSOv2 and Mode B result (1:00-1:20)
+Show the side-by-side private/offchain and public/onchain columns. The plaintext
+intent and salt remain private; commitments, allocations and transactions are
+public.
 
-Show the live FTSOv2 value/timestamp and signed `TEEResultV2`. State clearly that the Mode B operator signer evaluates the intent through an FCC-compatible interface; this is not hardware TEE execution.
+## Live vault state (1:20-1:48)
 
-## Execution and position (1:20-2:05)
+Show net NAV, gross NAV, available liquidity, Idle/Upshift exposure, the recorded
+FTSO input age and live protocol status.
 
-Open the rebalance transaction. Show the 50/50 Idle/Upshift target, real Upshift LP balance, net NAV, gross NAV and available liquidity. Confirm `executionId == resultHash`.
+## Signed controls (1:48-2:20)
 
-## Withdrawal and proof (2:05-2:40)
+Show the constraint statement and control table. Pause long enough for the Vault,
+chain, Router configuration and loss-limit bindings to remain readable.
 
-Show the withdrawal of 1,000,000 shares and receipt of 997,500 FXRP base units. Open all four Explorer transactions.
+## Contracts and honest close (2:20-2:40)
+
+Show all five deployed Coston2 addresses. End on the Mode B disclosure and the
+Coston2 testnet, unaudited and no-real-funds warning.
 
 ## Key Messages
 
 - "Your private intent never touches the chain"
-- "FCC Mode B simulates TEE attestation on Coston2"
+- "FCC Mode B is an FCC-compatible simulated attestation boundary on Coston2"
 - "Every execution is verifiable via executionId linkage"
 - "SignalVaultV2 is deployed on Coston2 and the evidence includes a real Upshift position and withdrawal"
 - "Testnet only, not audited, not for real funds, and Mode B is not hardware TEE"

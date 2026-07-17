@@ -12,8 +12,11 @@ protection. The blockchain proves the resulting execution.
 
 **Live Coston2 evidence dashboard:** https://hux-gif.github.io/SignalVault/
 
-**Demo video:** pending upload
-**Final verification:** https://github.com/hux-gif/SignalVault/actions/runs/29480218456
+**Demo video:** recorded locally; public upload remains a user-owned action
+
+**Final verification:** https://github.com/hux-gif/SignalVault/actions/runs/29501160815
+
+**Frontend deployment:** https://github.com/hux-gif/SignalVault/actions/runs/29501161290
 
 ### Live deployment
 
@@ -96,10 +99,10 @@ Aggregate allocation weights are public; they are not in the private column.
 | Anvil integration        | `local-signer` end-to-end against a local Anvil node                |
 | Coston2 Upshift scripts  | Read-only probes plus one real round trip against the live protocol |
 
-### Implemented on `signalvault-final`
+### Implemented on `main`
 
 The reviewed Adapter V2 foundation and the complete StrategyRouterV2 are
-implemented on the public integration branch:
+implemented on the public default branch:
 
 - `IStrategyAdapterV2` frozen adapter interface
 - `IStrategyRecoveryV2` emergency recovery interface
@@ -114,7 +117,9 @@ implemented on the public integration branch:
 - three-screen frontend presentation
 - Canonical integration test using real adapters and the production Router
 
-The V2 system is deployed on Coston2 with a verified FXRP/Upshift product E2E. The frontend is a live evidence dashboard with wallet and network verification; public hosting requires GitHub Pages enablement.
+The V2 system is deployed on Coston2 with a verified FXRP/Upshift product E2E.
+The frontend is a live evidence dashboard with wallet and network verification,
+published through GitHub Pages.
 
 ---
 
@@ -172,7 +177,7 @@ The V2 system is deployed on Coston2 with a verified FXRP/Upshift product E2E. T
 | V2 Anvil E2E                        | Script implemented; Coston2 live E2E verified |
 | SignalVault V2 Coston2 deployment   | Deployed; addresses in deployments/coston2-v2.json |
 | FCC Mode B                          | Local simulated attestation; not hardware TEE |
-| Frontend evidence views             | Live RPC dashboard; public hosting pending    |
+| Frontend evidence views             | Live RPC dashboard on GitHub Pages            |
 
 ---
 
@@ -243,7 +248,7 @@ Coston2 (chainId 114): deployed; see `deployments/coston2-v2.json`.
 Clone with pinned Solidity dependencies:
 
 ```bash
-git clone --branch signalvault-final --recurse-submodules https://github.com/hux-gif/SignalVault.git
+git clone --branch main --recurse-submodules https://github.com/hux-gif/SignalVault.git
 ```
 
 For an existing clone:
@@ -319,14 +324,16 @@ that value.
 Current reproducible baseline:
 
 ```text
-JavaScript: 182 passed (109 local-signer, 6 frontend, 67 integration)
+JavaScript/TypeScript: 207 passed (109 local-signer, 31 frontend, 67 integration)
 Foundry: complete suite passed in clean-checkout CI
 Typecheck: pass
 Frontend build: pass
 Forge fmt/build/build --sizes/test/lint: pass
 ```
 
-Canonical evidence: https://github.com/hux-gif/SignalVault/actions/runs/29480218456
+Canonical verification: https://github.com/hux-gif/SignalVault/actions/runs/29501160815
+
+Frontend deployment: https://github.com/hux-gif/SignalVault/actions/runs/29501161290
 
 An exact Foundry count is intentionally not quoted until authenticated workflow
 log export is stored with the repository. This retires older conflicting counts.

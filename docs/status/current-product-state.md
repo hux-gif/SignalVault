@@ -1,10 +1,10 @@
 # Current Product State
 
-Snapshot date: 2026-07-16
+Snapshot date: 2026-07-17
 
-Branch: `signalvault-final`
+Branch: `main`
 
-Release commit: `f013cdb1ef8656a0343444709feb4f022803f428`
+Frontend release commit: `028947bcad9f129fd5ccf77669fc03528c5e9b14`
 
 | Module | Status | Evidence |
 | --- | --- | --- |
@@ -17,18 +17,19 @@ Release commit: `f013cdb1ef8656a0343444709feb4f022803f428`
 | FCC | `TESTED_LOCAL` | Mode B FCC-compatible simulated attestation; not hardware TEE |
 | Frontend | `DEMO_READY` | https://hux-gif.github.io/SignalVault/ |
 | Coston2 E2E | `LIVE_E2E_VERIFIED` | Deposit, commitment, rebalance and withdrawal |
-| Submission docs | `DEMO_READY` | Video and DoraHacks upload remain human actions |
+| Submission docs | `DEMO_READY` | Video recorded locally; upload and DoraHacks submission remain human actions |
 
 ## Verification
 
-- JavaScript/TypeScript: 182 tests passed (109 local-signer, 6 frontend, 67 integration).
+- JavaScript/TypeScript: 207 tests passed (109 local-signer, 31 frontend, 67 integration).
 - Typecheck and production frontend build: pass.
 - Complete Foundry format, build, size, test and lint gate: pass.
-- Final workflow: https://github.com/hux-gif/SignalVault/actions/runs/29480218456
+- Verify workflow: https://github.com/hux-gif/SignalVault/actions/runs/29501160815
+- Deploy frontend workflow: https://github.com/hux-gif/SignalVault/actions/runs/29501161290
 - Deployment and E2E sources: `deployments/coston2-v2.json`, `reports/final-e2e/manifest.json`, `reports/final-e2e/transactions.json`.
 
 ## Human actions remaining
 
-1. Run a small external usability session or retain `EXTERNAL FEEDBACK PENDING`.
-2. Record and upload the 2-3 minute demo video.
+1. Upload the recorded 2-minute-40-second demo video to a public or unlisted host.
+2. Paste the video URL into the final submission copy.
 3. Complete and submit the DoraHacks form.
