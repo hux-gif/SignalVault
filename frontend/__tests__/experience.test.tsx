@@ -87,6 +87,13 @@ describe("SignalVault execution dossier", () => {
     vi.clearAllMocks();
   });
 
+  it("renders the supplied SignalVault logo in the existing home link", async () => {
+    await renderLiveApp();
+
+    const homeLink = screen.getByRole("link", { name: "SignalVault home" });
+    expect(homeLink.querySelector('img[alt="SignalVault logo"]')).toBeTruthy();
+  });
+
   it("opens a wallet-verification drawer before requesting access", async () => {
     await renderLiveApp();
     await openWalletDrawer();

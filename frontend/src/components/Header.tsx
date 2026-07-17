@@ -1,6 +1,8 @@
 import { formatAddress } from "../lib/evidence";
 import type { RpcState } from "../lib/evidence";
 
+const signalVaultLogo = new URL("../assets/signalvault-logo.png", import.meta.url).href;
+
 interface Props {
   account: string | null;
   onVerify: () => void;
@@ -12,7 +14,7 @@ export function Header({ account, onVerify, rpcState }: Props) {
   return (
     <header className="site-header">
       <a className="wordmark" href="#top" aria-label="SignalVault home">
-        <span className="wordmark__stamp" aria-hidden="true">SV</span>
+        <img className="wordmark__stamp" src={signalVaultLogo} alt="SignalVault logo" />
         <span>SignalVault</span>
       </a>
       <nav aria-label="Primary navigation">
